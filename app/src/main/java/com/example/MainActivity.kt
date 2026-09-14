@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.local.TrackEntity
+import com.example.ui.components.AeroSuperbarNav
 import com.example.ui.components.AddToPlaylistDialog
 import com.example.ui.components.AppSplashScreen
 import com.example.ui.components.FullScreenPlayer
@@ -105,6 +106,7 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchFilter by viewModel.searchFilter.collectAsState()
     val selectedPlaylist by viewModel.selectedPlaylist.collectAsState()
+    val downloadStates by viewModel.downloadStates.collectAsState()
 
     val isLoginScreenOpen by viewModel.isLoginScreenOpen.collectAsState()
     val isFullScreenPlayerOpen by viewModel.isFullScreenPlayerOpen.collectAsState()
@@ -187,87 +189,11 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                     )
                 }
 
-                // M3 Bottom Navigation Bar
-                NavigationBar(
-                    containerColor = ObsidianSurface,
-                    contentColor = TextPrimary,
-                    tonalElevation = 0.dp
-                ) {
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.HOME,
-                        onClick = { viewModel.selectTab(AppNavTab.HOME) },
-                        icon = { Icon(Icons.Default.Explore, contentDescription = "Discover") },
-                        label = { Text("Discover", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CrossPurple,
-                            selectedTextColor = CrossPurple,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = CrossPurple.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_home")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.SEARCH,
-                        onClick = { viewModel.selectTab(AppNavTab.SEARCH) },
-                        icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                        label = { Text("Search", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CrossPurple,
-                            selectedTextColor = CrossPurple,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = CrossPurple.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_search")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.LIBRARY,
-                        onClick = { viewModel.selectTab(AppNavTab.LIBRARY) },
-                        icon = { Icon(Icons.Default.LibraryMusic, contentDescription = "Library") },
-                        label = { Text("Library", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CrossPurple,
-                            selectedTextColor = CrossPurple,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = CrossPurple.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_library")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.JAM,
-                        onClick = { viewModel.selectTab(AppNavTab.JAM) },
-                        icon = { Icon(Icons.Default.Groups, contentDescription = "Collab Jam") },
-                        label = { Text("Collab", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CrossPurple,
-                            selectedTextColor = CrossPurple,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = CrossPurple.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_collab")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.SETTINGS,
-                        onClick = { viewModel.selectTab(AppNavTab.SETTINGS) },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CrossPurple,
-                            selectedTextColor = CrossPurple,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = CrossPurple.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_settings")
-                    )
-                }
+                // Windows 7 Aero Superbar Bottom Navigation
+                AeroSuperbarNav(
+                    currentTab = currentTab,
+                    onTabSelected = { viewModel.selectTab(it) }
+                )
             }
         }
     ) { innerPadding ->
@@ -284,13 +210,25 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         playerState = playerState,
                         syncState = syncState,
                         discoveryArtists = viewModel.discoveryArtists,
+                        downloadStates = downloadStates,
                         onTrackClick = { viewModel.playTrack(it, allTracks) },
                         onLikeClick = { viewModel.toggleLike(it) },
                         onDownloadClick = {
                             viewModel.toggleDownload(it)
                             coroutineScope.launch {
-                                val msg = if (it.isDownloaded) "Removed download" else "Downloaded ${it.title} for offline listening"
+                                val dState = viewModel.getDownloadStateForTrack(it).status
+                                val msg = when (dState) {
+                                    com.example.data.model.DownloadStatus.DOWNLOADED -> "Removed download for ${it.title}"
+                                    com.example.data.model.DownloadStatus.DOWNLOADING, com.example.data.model.DownloadStatus.PENDING -> "Downloading ${it.title}..."
+                                    else -> "Started download for ${it.title}"
+                                }
                                 snackbarHostState.showSnackbar(msg)
+                            }
+                        },
+                        onRetryDownload = { track ->
+                            viewModel.retryDownload(track)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Retrying download for ${track.title}")
                             }
                         },
                         onAddToPlaylistClick = { viewModel.openAddToPlaylistDialog(it) },
@@ -312,17 +250,36 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         onFilterSelect = { viewModel.setSearchFilter(it) },
                         results = searchResults,
                         playerState = playerState,
+                        downloadStates = downloadStates,
                         onTrackClick = { viewModel.playTrack(it, searchResults) },
                         onLikeClick = { viewModel.toggleLike(it) },
                         onDownloadClick = {
                             viewModel.toggleDownload(it)
                             coroutineScope.launch {
-                                val msg = if (it.isDownloaded) "Removed download" else "Downloaded ${it.title} for offline listening"
+                                val dState = viewModel.getDownloadStateForTrack(it).status
+                                val msg = when (dState) {
+                                    com.example.data.model.DownloadStatus.DOWNLOADED -> "Removed download for ${it.title}"
+                                    com.example.data.model.DownloadStatus.DOWNLOADING, com.example.data.model.DownloadStatus.PENDING -> "Downloading ${it.title}..."
+                                    else -> "Started download for ${it.title}"
+                                }
                                 snackbarHostState.showSnackbar(msg)
                             }
                         },
+                        onRetryDownload = { track ->
+                            viewModel.retryDownload(track)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Retrying download for ${track.title}")
+                            }
+                        },
                         onAddToPlaylistClick = { viewModel.openAddToPlaylistDialog(it) },
-                        onShareClick = { viewModel.openSocialShareDialog(it) }
+                        onShareClick = { viewModel.openSocialShareDialog(it) },
+                        onSwitchPlatformCounterpart = {
+                            viewModel.switchPlatformCounterpart(it)
+                            coroutineScope.launch {
+                                val target = if (it.platformSource == com.example.data.model.PlatformSource.SPOTIFY) "YouTube 4K Live" else "Spotify Lossless"
+                                snackbarHostState.showSnackbar("Switched to $target version")
+                            }
+                        }
                     )
                 }
                 AppNavTab.LIBRARY -> {
@@ -330,10 +287,12 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         playlists = playlists,
                         downloadedTracks = downloadedTracks,
                         likedTracks = likedTracks,
+                        allTracks = allTracks,
                         selectedPlaylist = selectedPlaylist,
                         playerState = playerState,
                         syncState = syncState,
                         cachedPlaylists = cachedPlaylists,
+                        downloadStates = downloadStates,
                         onPlaylistClick = { viewModel.openPlaylist(it) },
                         onClosePlaylistDetails = { viewModel.closePlaylistDetails() },
                         onCreatePlaylistClick = { showCreatePlaylistSheet = true },
@@ -350,9 +309,29 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         onDownloadClick = {
                             viewModel.toggleDownload(it)
                             coroutineScope.launch {
-                                val msg = if (it.isDownloaded) "Removed download" else "Downloaded ${it.title} for offline listening"
+                                val dState = viewModel.getDownloadStateForTrack(it).status
+                                val msg = when (dState) {
+                                    com.example.data.model.DownloadStatus.DOWNLOADED -> "Removed download for ${it.title}"
+                                    com.example.data.model.DownloadStatus.DOWNLOADING, com.example.data.model.DownloadStatus.PENDING -> "Downloading ${it.title}..."
+                                    else -> "Started download for ${it.title}"
+                                }
                                 snackbarHostState.showSnackbar(msg)
                             }
+                        },
+                        onRetryDownload = { track ->
+                            viewModel.retryDownload(track)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Retrying download for ${track.title}")
+                            }
+                        },
+                        onRetryAllFailedDownloads = {
+                            viewModel.retryAllFailedDownloads()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Retrying all failed downloads")
+                            }
+                        },
+                        onSimulateError = { track ->
+                            viewModel.simulateDownloadError(track)
                         },
                         onAddToPlaylistClick = { viewModel.openAddToPlaylistDialog(it) },
                         onShareClick = { viewModel.openSocialShareDialog(it) }
@@ -384,6 +363,7 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         onSetAudioQuality = { viewModel.updateStreamingQuality(it) },
                         onSetOfflineModeOnly = { viewModel.toggleOfflineListeningMode(it) },
                         onSetEqPreset = { viewModel.updateEqualizerPreset(it) },
+                        onUpdateCrossfadeSettings = { enabled, seconds -> viewModel.updateCrossfadeSettings(enabled, seconds) },
                         onUpdateAccountCredential = { platform, token, user ->
                             viewModel.updateAccountCredential(platform, token, user)
                             coroutineScope.launch {
@@ -424,6 +404,15 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
             },
             onAddToPlaylistClick = { playerState.currentTrack?.let { viewModel.openAddToPlaylistDialog(it) } },
             onShareClick = { playerState.currentTrack?.let { viewModel.openSocialShareDialog(it) } },
+            onSwitchPlatformCounterpart = {
+                playerState.currentTrack?.let {
+                    viewModel.switchPlatformCounterpart(it)
+                    coroutineScope.launch {
+                        val target = if (it.platformSource == com.example.data.model.PlatformSource.SPOTIFY) "YouTube 4K Live" else "Spotify Lossless"
+                        snackbarHostState.showSnackbar("Switched to $target version")
+                    }
+                }
+            },
             onOpenVisualizerSettings = { viewModel.setVisualizerSettingsOpen(true) }
         )
     }
@@ -545,10 +534,22 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                     snackbarHostState.showSnackbar("YouTube account linked & credentials securely stored in Room")
                 }
             },
+            onApplyPreset = { preset ->
+                viewModel.applyAccountPreset(preset)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Connected as ${preset.username} (${preset.tier})")
+                }
+            },
+            onDisconnectPlatform = { platform ->
+                viewModel.disconnectService(platform)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Disconnected ${platform.displayName}")
+                }
+            },
             onStartSync = {
                 viewModel.startSync()
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Starting initial cross-platform library synchronization...")
+                    snackbarHostState.showSnackbar("Cross-platform synchronization in progress...")
                 }
             },
             onContinueToApp = {

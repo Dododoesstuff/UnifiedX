@@ -2,33 +2,111 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Obsidian & Luxury Dark Canvas
-val ObsidianDeep = Color(0xFF090A0F)
-val ObsidianSurface = Color(0xFF11131B)
-val ObsidianCard = Color(0xFF181A26)
-val ObsidianCardHover = Color(0xFF212435)
-val ObsidianStroke = Color(0xFF262A3D)
+// Baby Blue & Modern Slate Palette
+val AppBackground = Color(0xFF0B1220)        // Deep Midnight Slate
+val AppSurface = Color(0xFF142036)           // Elevated Slate Surface Card
+val AppSurfaceElevated = Color(0xFF1D2E4A)   // Highlighted Slate Surface
+val AppBorder = Color(0xFF283A59)            // Hairline Slate Border
+val AppBorderFocused = Color(0xFF7DD3FC)     // Active Baby Blue Border
 
-// Brand Colors
-val SpotifyGreen = Color(0xFF1ED760)
-val SpotifyDark = Color(0xFF121212)
-val YouTubeRed = Color(0xFFFF0033)
-val YouTubeDark = Color(0xFF282828)
+// Brand Accents - Baby Blue Core Palette
+val AppPrimary = Color(0xFF7DD3FC)           // Baby Blue Primary Accent (Light Sky Blue)
+val AppPrimaryDark = Color(0xFF38BDF8)       // Vivid Sky Blue Accent
+val AppPrimaryLight = Color(0xFFBAE6FD)      // Soft Ice Baby Blue Highlight
+val AppAccentCyan = Color(0xFF34D399)        // Harmonious Soft Mint Accent
+val AppAccentLavender = Color(0xFFA78BFA)    // Harmonious Pastel Lavender Accent
 
-// Vibrant Accent Palette - Baby Blue Theme
-val BabyBlue = Color(0xFF89CFF0)
-val BabyBlueAccent = Color(0xFF5DADE2)
-val BabyBlueLight = Color(0xFFBAE6FD)
-val CrossPurple = Color(0xFF89CFF0) // Updated from Purple to Baby Blue
-val ElectricViolet = Color(0xFFBAE6FD) // Updated to Light Baby Blue
-val NeonCyan = Color(0xFF06B6D4)
-val HiResGold = Color(0xFFF59E0B)
+// Streaming Platform Branding
+val SpotifyGreen = Color(0xFF1DB954)
+val YouTubeRed = Color(0xFFFF0000)
 
-// Text Colors
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFA0A5B5)
-val TextTertiary = Color(0xFF6B7280)
+// Standard Text Hierarchy
+val TextPrimary = Color(0xFFF8FAFC)
+val TextSecondary = Color(0xFF94A3B8)
+val TextTertiary = Color(0xFF64748B)
+val TextMuted = Color(0xFF64748B)
 
-// Semantic
-val SuccessGreen = Color(0xFF10B981)
-val ErrorRed = Color(0xFFEF4444)
+val SuccessGreen = Color(0xFF34D399)
+val ErrorRed = Color(0xFFF87171)
+val HiResGold = Color(0xFFFBBF24)
+
+// Aliases for Backward Compatibility
+val CyberVoidBlack = AppBackground
+val CyberSlateDark = AppSurface
+val CyberSlateElevated = AppSurfaceElevated
+val CyberBorderHairline = AppBorder
+val CyberEmerald = AppPrimary
+val CyberEmeraldDark = AppPrimaryDark
+val CyberCyan = AppAccentCyan
+val CyberCyanGlow = Color(0x337DD3FC)
+val CyberViolet = AppAccentLavender
+val CyberVioletGlow = Color(0x33A78BFA)
+
+val OxygenRed = AppPrimary
+val OxygenRedDark = AppPrimaryDark
+val OxygenRedLight = AppPrimaryLight
+val OxygenMint = SuccessGreen
+val OxygenBlack = AppBackground
+val OxygenNavyDark = AppSurface
+val OxygenSurface = AppSurface
+val OxygenSurfaceElevated = AppSurfaceElevated
+val OxygenCardBorder = AppBorder
+val OxygenTextPrimary = TextPrimary
+val OxygenTextSecondary = TextSecondary
+val OxygenTextMuted = TextMuted
+
+val AeroDeepSpace = AppBackground
+val AeroCobaltDark = AppSurface
+val AeroNavyGlass = AppSurface
+val AeroCardSurface = AppSurface
+val AeroCardHover = AppSurfaceElevated
+val AeroGlassStroke = AppBorder
+val AeroGlassBorderSoft = AppBorder
+val AeroSkyBlue = AppPrimaryLight
+val AeroCyanGlow = AppPrimary
+val AeroLiquidAqua = AppAccentCyan
+val AeroIceWhite = TextPrimary
+
+val AeroGelBlueTop = AppPrimary
+val AeroGelBlueBottom = AppPrimaryDark
+val AeroGelGreenTop = AppAccentCyan
+val AeroGelGreenBottom = SuccessGreen
+val AeroGelRedTop = ErrorRed
+val AeroGelRedBottom = Color(0xFFDC2626)
+
+val LiquidAbyssDeep = AppBackground
+val LiquidNavyDark = AppSurface
+val LiquidCobaltBase = AppSurface
+val LiquidCyanShimmer = AppPrimary
+val LiquidAquaGlow = AppAccentCyan
+val LiquidIndigoGlow = AppAccentLavender
+val LiquidElectricBlue = AppPrimaryLight
+
+val LiquidGlassFillLight = AppSurface
+val LiquidGlassFillMedium = AppSurface
+val LiquidGlassFillDark = AppBackground
+val LiquidGlassCardBg = AppSurface
+val LiquidGlassBorderOuter = AppBorder
+val LiquidGlassBorderInner = AppBorder
+
+val LiquidGelBlueTop = AppPrimary
+val LiquidGelBlueBottom = AppPrimaryDark
+val LiquidGelAquaTop = AppAccentCyan
+val LiquidGelAquaBottom = SuccessGreen
+val LiquidGelRedTop = ErrorRed
+val LiquidGelRedBottom = Color(0xFFDC2626)
+
+val ObsidianDeep = AppBackground
+val ObsidianSurface = AppSurface
+val ObsidianCard = AppSurface
+val ObsidianCardHover = AppSurfaceElevated
+val ObsidianStroke = AppBorder
+
+val BabyBlue = AppPrimary
+val BabyBlueAccent = AppPrimaryDark
+val BabyBlueLight = AppPrimaryLight
+val SoftMint = AppAccentCyan
+val SoftLavender = AppAccentLavender
+val CrossPurple = AppPrimary
+val ElectricViolet = AppAccentLavender
+val NeonCyan = AppAccentCyan

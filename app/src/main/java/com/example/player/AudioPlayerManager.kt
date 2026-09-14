@@ -48,6 +48,9 @@ data class PlayerUiState(
     val isLyricsSynced: Boolean = true,
     val plainLyrics: String? = null,
     val isOfflineModeOnly: Boolean = false,
+    val autoCrossfade: Boolean = true,
+    val crossfadeDurationSeconds: Int = 4,
+    val isCrossfading: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -61,6 +64,9 @@ class AudioPlayerManager(
     private var mediaPlayer: MediaPlayer? = null
     private var progressJob: Job? = null
     private var lyricsFetchJob: Job? = null
+    private var fadeOutJob: Job? = null
+    private var fadeInJob: Job? = null
+    private var hasTriggeredAutoCrossfadeNearEnd: Boolean = false
     private var simulatedPositionMs: Long = 0L
     private var isSimulatingAudio: Boolean = false
 
@@ -79,6 +85,14 @@ class AudioPlayerManager(
         _uiState.value = _uiState.value.copy(activeEqPreset = preset)
     }
 
+    fun setAutoCrossfade(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(autoCrossfade = enabled)
+    }
+
+    fun setCrossfadeDuration(seconds: Int) {
+        _uiState.value = _uiState.value.copy(crossfadeDurationSeconds = seconds.coerceIn(1, 12))
+    }
+
     fun playTrack(track: TrackEntity, newQueue: List<TrackEntity> = emptyList()) {
         if (_uiState.value.isOfflineModeOnly && !track.isDownloaded) {
             _uiState.value = _uiState.value.copy(
@@ -92,6 +106,13 @@ class AudioPlayerManager(
         }
 
         val localLyrics = LyricsParser.parseLrc(track.lyricsLrc)
+        val isAutoCrossfade = _uiState.value.autoCrossfade && _uiState.value.crossfadeDurationSeconds > 0
+        val isCurrentlyPlaying = _uiState.value.isPlaying && _uiState.value.currentTrack != null
+        val fadeDurationMs = (_uiState.value.crossfadeDurationSeconds * 1000L).coerceIn(500L, 12000L)
+
+        val previousPlayer = mediaPlayer
+        hasTriggeredAutoCrossfadeNearEnd = false
+
         _uiState.value = _uiState.value.copy(
             currentTrack = track,
             queue = queueToUse,
@@ -104,15 +125,41 @@ class AudioPlayerManager(
             durationMs = track.durationMs,
             currentPositionMs = 0L,
             errorMessage = null,
-            isPlaying = true
+            isPlaying = true,
+            isCrossfading = isAutoCrossfade && isCurrentlyPlaying
         )
 
         simulatedPositionMs = 0L
         isSimulatingAudio = false
-        releaseMediaPlayer()
 
         // Fetch time-synced lyrics from API in background
         fetchLyricsFromApi(track)
+
+        // Smooth crossfade: fade out previous active player
+        if (isAutoCrossfade && isCurrentlyPlaying && previousPlayer != null) {
+            fadeOutJob?.cancel()
+            fadeOutJob = scope.launch {
+                val steps = 20
+                val stepDelay = fadeDurationMs / steps
+                for (i in steps downTo 0) {
+                    val vol = i.toFloat() / steps.toFloat()
+                    try {
+                        previousPlayer.setVolume(vol, vol)
+                    } catch (e: Exception) {
+                        break
+                    }
+                    delay(stepDelay)
+                }
+                try {
+                    previousPlayer.stop()
+                    previousPlayer.release()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error releasing faded out player", e)
+                }
+            }
+        } else {
+            releaseMediaPlayer()
+        }
 
         try {
             val player = MediaPlayer().apply {
@@ -123,12 +170,34 @@ class AudioPlayerManager(
                         .build()
                 )
                 setDataSource(track.streamUrl)
+                if (isAutoCrossfade && isCurrentlyPlaying) {
+                    setVolume(0f, 0f)
+                }
                 setOnPreparedListener { mp ->
                     mp.start()
                     _uiState.value = _uiState.value.copy(
                         isPlaying = true,
                         durationMs = mp.duration.toLong().coerceAtLeast(track.durationMs)
                     )
+                    if (isAutoCrossfade && isCurrentlyPlaying) {
+                        fadeInJob?.cancel()
+                        fadeInJob = scope.launch {
+                            val steps = 20
+                            val stepDelay = fadeDurationMs / steps
+                            for (i in 0..steps) {
+                                val vol = i.toFloat() / steps.toFloat()
+                                try {
+                                    mp.setVolume(vol, vol)
+                                } catch (e: Exception) {
+                                    break
+                                }
+                                delay(stepDelay)
+                            }
+                            _uiState.value = _uiState.value.copy(isCrossfading = false)
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(isCrossfading = false)
+                    }
                 }
                 setOnCompletionListener {
                     onTrackFinished()
@@ -136,6 +205,7 @@ class AudioPlayerManager(
                 setOnErrorListener { _, what, extra ->
                     Log.w(TAG, "MediaPlayer error $what / $extra, falling back to simulated playback")
                     isSimulatingAudio = true
+                    _uiState.value = _uiState.value.copy(isCrossfading = false)
                     true
                 }
                 prepareAsync()
@@ -144,6 +214,7 @@ class AudioPlayerManager(
         } catch (e: Exception) {
             Log.w(TAG, "Error initializing MediaPlayer, using simulated playback", e)
             isSimulatingAudio = true
+            _uiState.value = _uiState.value.copy(isCrossfading = false)
         }
 
         startProgressTracking()
@@ -328,6 +399,16 @@ class AudioPlayerManager(
                     pos = simulatedPositionMs
                 }
 
+                val state = _uiState.value
+                if (state.autoCrossfade && state.crossfadeDurationSeconds > 0 && state.durationMs > 0) {
+                    val remainingMs = state.durationMs - pos
+                    val crossfadeThresholdMs = state.crossfadeDurationSeconds * 1000L
+                    if (remainingMs in 1L..crossfadeThresholdMs && !hasTriggeredAutoCrossfadeNearEnd && state.queue.isNotEmpty()) {
+                        hasTriggeredAutoCrossfadeNearEnd = true
+                        skipNext()
+                    }
+                }
+
                 updateLyricsPosition(pos)
                 _uiState.value = _uiState.value.copy(currentPositionMs = pos)
                 delay(200L)
@@ -357,6 +438,10 @@ class AudioPlayerManager(
     }
 
     private fun releaseMediaPlayer() {
+        fadeOutJob?.cancel()
+        fadeOutJob = null
+        fadeInJob?.cancel()
+        fadeInJob = null
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()
@@ -364,6 +449,38 @@ class AudioPlayerManager(
             Log.e(TAG, "Error releasing MediaPlayer", e)
         }
         mediaPlayer = null
+    }
+
+    fun updateLikedState(trackId: String, isLiked: Boolean) {
+        val curr = _uiState.value.currentTrack
+        val updatedCurrent = if (curr?.id == trackId) {
+            curr.copy(isLiked = isLiked)
+        } else {
+            curr
+        }
+        val updatedQueue = _uiState.value.queue.map {
+            if (it.id == trackId) it.copy(isLiked = isLiked) else it
+        }
+        _uiState.value = _uiState.value.copy(
+            currentTrack = updatedCurrent,
+            queue = updatedQueue
+        )
+    }
+
+    fun updateDownloadedState(trackId: String, isDownloaded: Boolean) {
+        val curr = _uiState.value.currentTrack
+        val updatedCurrent = if (curr?.id == trackId) {
+            curr.copy(isDownloaded = isDownloaded)
+        } else {
+            curr
+        }
+        val updatedQueue = _uiState.value.queue.map {
+            if (it.id == trackId) it.copy(isDownloaded = isDownloaded) else it
+        }
+        _uiState.value = _uiState.value.copy(
+            currentTrack = updatedCurrent,
+            queue = updatedQueue
+        )
     }
 
     fun release() {

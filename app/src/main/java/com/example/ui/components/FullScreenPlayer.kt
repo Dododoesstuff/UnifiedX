@@ -109,6 +109,7 @@ fun FullScreenPlayer(
     onCycleEqPreset: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
     onShareClick: () -> Unit,
+    onSwitchPlatformCounterpart: (() -> Unit)? = null,
     onOpenVisualizerSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -234,12 +235,16 @@ fun FullScreenPlayer(
                     )
                 }
 
-                // Cross-Platform Source Pill
+                // Cross-Platform Source Switcher Pill
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(sourceColor.copy(alpha = 0.18f))
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .clickable(enabled = onSwitchPlatformCounterpart != null) {
+                            onSwitchPlatformCounterpart?.invoke()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .testTag("full_player_source_pill"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -250,7 +255,7 @@ fun FullScreenPlayer(
                             .background(sourceColor)
                     )
                     Text(
-                        text = "Source: ${track.platformSource.displayName}",
+                        text = "Source: ${track.platformSource.displayName} ⇄",
                         color = sourceColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold

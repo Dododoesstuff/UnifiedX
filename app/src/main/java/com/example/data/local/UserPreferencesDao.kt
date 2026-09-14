@@ -35,6 +35,9 @@ interface UserPreferencesDao {
     @Query("UPDATE user_preferences SET youtubeApiKey = :apiKey, isYoutubeLinked = :linked WHERE id = :id")
     suspend fun updateYoutubeConnection(apiKey: String, linked: Boolean, id: String = "default_user_prefs")
 
+    @Query("UPDATE user_preferences SET autoCrossfade = :autoCrossfade, crossfadeSeconds = :seconds WHERE id = :id")
+    suspend fun updateCrossfadeSettings(autoCrossfade: Boolean, seconds: Int, id: String = "default_user_prefs")
+
     @Query("UPDATE user_preferences SET lastLibrarySyncTimestamp = :timestamp WHERE id = :id")
     suspend fun updateLastSync(timestamp: Long, id: String = "default_user_prefs")
 

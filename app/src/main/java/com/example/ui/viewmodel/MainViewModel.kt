@@ -11,7 +11,9 @@ import com.example.data.local.PlaylistWithTracks
 import com.example.data.local.TrackEntity
 import com.example.data.local.UserPreferencesEntity
 import com.example.data.model.AudioQuality
+import com.example.data.model.DownloadStatus
 import com.example.data.model.PlatformSource
+import com.example.data.model.TrackDownloadState
 import com.example.data.repository.MusicRepository
 import com.example.player.AudioPlayerHolder
 import com.example.player.AudioPlayerManager
@@ -50,6 +52,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val syncManager = CrossPlatformSyncManager(repository, viewModelScope)
     val collabManager = CollaborativeSessionManager(application)
     val waveformEngine = com.example.visualizer.AudioWaveformEngine(application, viewModelScope)
+    val seamlessMusicApi = com.example.data.engine.SeamlessUnifiedMusicApi(repository)
 
     val playerUiState = playerManager.uiState
     val syncUiState = syncManager.syncState
@@ -81,6 +84,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedPlaylist = MutableStateFlow<PlaylistWithTracks?>(null)
     val selectedPlaylist: StateFlow<PlaylistWithTracks?> = _selectedPlaylist.asStateFlow()
+
+    private val _downloadStates = MutableStateFlow<Map<String, TrackDownloadState>>(emptyMap())
+    val downloadStates: StateFlow<Map<String, TrackDownloadState>> = _downloadStates.asStateFlow()
 
     // Data streams
     val allTracks: StateFlow<List<TrackEntity>> = repository.allTracks.stateIn(
@@ -192,6 +198,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.ensureSeeded()
         }
+        viewModelScope.launch {
+            userPreferences.collect { prefs ->
+                prefs?.let {
+                    playerManager.setOfflineModeOnly(it.isOfflineModeOnly)
+                    playerManager.setStreamingQuality(it.streamingQuality)
+                    playerManager.setAutoCrossfade(it.autoCrossfade)
+                    playerManager.setCrossfadeDuration(it.crossfadeSeconds)
+                }
+            }
+        }
     }
 
     fun selectTab(tab: AppNavTab) {
@@ -250,7 +266,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _searchQuery.value = query
         if (query.isNotBlank() && query.length >= 2) {
             viewModelScope.launch {
-                repository.searchOnlineAndCache(query, _searchFilter.value)
+                val platform = when (_searchFilter.value) {
+                    "SPOTIFY" -> PlatformSource.SPOTIFY
+                    "YOUTUBE" -> PlatformSource.YOUTUBE
+                    else -> null
+                }
+                seamlessMusicApi.searchUnified(query, platform, playerUiState.value.streamingQuality)
             }
         }
     }
@@ -259,8 +280,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _searchFilter.value = filter
         if (_searchQuery.value.isNotBlank()) {
             viewModelScope.launch {
-                repository.searchOnlineAndCache(_searchQuery.value, filter)
+                val platform = when (filter) {
+                    "SPOTIFY" -> PlatformSource.SPOTIFY
+                    "YOUTUBE" -> PlatformSource.YOUTUBE
+                    else -> null
+                }
+                seamlessMusicApi.searchUnified(_searchQuery.value, platform, playerUiState.value.streamingQuality)
             }
+        }
+    }
+
+    fun switchPlatformCounterpart(track: TrackEntity) {
+        viewModelScope.launch {
+            val counterpart = seamlessMusicApi.resolveCrossPlatformCounterpart(track)
+            playTrack(counterpart)
         }
     }
 
@@ -290,18 +323,82 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Library actions
     fun toggleLike(track: TrackEntity) {
         viewModelScope.launch {
+            val newLiked = !track.isLiked
             repository.toggleLike(track.id, track.isLiked)
+            playerManager.updateLikedState(track.id, newLiked)
+        }
+    }
+
+    fun getDownloadStateForTrack(track: TrackEntity): TrackDownloadState {
+        val mapped = _downloadStates.value[track.id]
+        if (mapped != null) return mapped
+        return if (track.isDownloaded) {
+            TrackDownloadState(status = DownloadStatus.DOWNLOADED, progressPercent = 100)
+        } else {
+            TrackDownloadState(status = DownloadStatus.NOT_DOWNLOADED, progressPercent = 0)
         }
     }
 
     fun toggleDownload(track: TrackEntity) {
+        val currentStatus = getDownloadStateForTrack(track).status
         viewModelScope.launch {
-            if (track.isDownloaded) {
+            if (currentStatus == DownloadStatus.DOWNLOADED) {
                 repository.removeDownload(track.id)
+                playerManager.updateDownloadedState(track.id, false)
+                _downloadStates.value = _downloadStates.value - track.id
+            } else if (currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING) {
+                _downloadStates.value = _downloadStates.value + (track.id to TrackDownloadState(status = DownloadStatus.NOT_DOWNLOADED))
             } else {
-                repository.downloadTrack(track.id, playerUiState.value.streamingQuality)
+                startDownloadFlow(track)
             }
         }
+    }
+
+    fun retryDownload(track: TrackEntity) {
+        viewModelScope.launch {
+            startDownloadFlow(track)
+        }
+    }
+
+    fun retryAllFailedDownloads() {
+        viewModelScope.launch {
+            val failedTrackIds = _downloadStates.value.filter { it.value.status == DownloadStatus.ERROR }.keys
+            allTracks.value.filter { it.id in failedTrackIds }.forEach { track ->
+                launch { startDownloadFlow(track) }
+            }
+        }
+    }
+
+    fun simulateDownloadError(track: TrackEntity) {
+        _downloadStates.value = _downloadStates.value + (track.id to TrackDownloadState(
+            status = DownloadStatus.ERROR,
+            progressPercent = 35,
+            errorMessage = "Network timeout downloading high-fidelity stream"
+        ))
+    }
+
+    private suspend fun startDownloadFlow(track: TrackEntity) {
+        _downloadStates.value = _downloadStates.value + (track.id to TrackDownloadState(
+            status = DownloadStatus.PENDING,
+            progressPercent = 0
+        ))
+        kotlinx.coroutines.delay(400)
+
+        val progressSteps = listOf(20, 50, 85, 100)
+        for (p in progressSteps) {
+            _downloadStates.value = _downloadStates.value + (track.id to TrackDownloadState(
+                status = DownloadStatus.DOWNLOADING,
+                progressPercent = p
+            ))
+            kotlinx.coroutines.delay(300)
+        }
+
+        repository.downloadTrack(track.id, playerUiState.value.streamingQuality)
+        playerManager.updateDownloadedState(track.id, true)
+        _downloadStates.value = _downloadStates.value + (track.id to TrackDownloadState(
+            status = DownloadStatus.DOWNLOADED,
+            progressPercent = 100
+        ))
     }
 
     fun createUnifiedPlaylist(title: String, description: String) {
@@ -336,13 +433,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Cross-platform sync
+    // Cross-platform sync & accounts
     fun startSync() {
         syncManager.startCrossPlatformSync()
     }
 
     fun updateAccountCredential(source: PlatformSource, token: String, username: String) {
         syncManager.updateAccountToken(source, token, username)
+    }
+
+    fun applyAccountPreset(preset: com.example.sync.DemoProfilePreset) {
+        syncManager.applyPreset(preset)
+    }
+
+    fun disconnectService(platform: PlatformSource) {
+        syncManager.disconnectService(platform)
     }
 
     // User preferences & offline access actions
@@ -364,6 +469,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.updateEqualizerPreset(preset.label)
             playerManager.setEqPreset(preset)
+        }
+    }
+
+    fun updateCrossfadeSettings(autoCrossfade: Boolean, seconds: Int) {
+        viewModelScope.launch {
+            repository.updateCrossfadeSettings(autoCrossfade, seconds)
+            playerManager.setAutoCrossfade(autoCrossfade)
+            playerManager.setCrossfadeDuration(seconds)
         }
     }
 

@@ -6,25 +6,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val CrossBeatDarkColorScheme = darkColorScheme(
-    primary = CrossPurple, // Baby Blue
+    primary = AppPrimary, // Baby Blue
     onPrimary = Color(0xFF003258),
     primaryContainer = Color(0xFF0C4A6E),
-    onPrimaryContainer = Color(0xFFC2E7FF),
-    secondary = SpotifyGreen,
-    onSecondary = Color.Black,
+    onPrimaryContainer = Color(0xFFE0F2FE),
+    secondary = AppAccentCyan, // Soft Mint Accent
+    onSecondary = Color(0xFF003822),
     secondaryContainer = Color(0xFF064E3B),
     onSecondaryContainer = Color(0xFFA7F3D0),
-    tertiary = YouTubeRed,
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFF450A0A),
-    onTertiaryContainer = Color(0xFFFECACA),
-    background = ObsidianDeep,
+    tertiary = AppAccentLavender, // Soft Pastel Lavender Accent
+    onTertiary = Color(0xFF381E72),
+    tertiaryContainer = Color(0xFF4C1D95),
+    onTertiaryContainer = Color(0xFFEDE9FE),
+    background = AppBackground,
     onBackground = TextPrimary,
-    surface = ObsidianSurface,
+    surface = AppSurface,
     onSurface = TextPrimary,
-    surfaceVariant = ObsidianCard,
+    surfaceVariant = AppSurfaceElevated,
     onSurfaceVariant = TextSecondary,
-    outline = ObsidianStroke
+    outline = AppBorder
 )
 
 @Composable

@@ -240,6 +240,10 @@ class MusicRepository(private val database: AppDatabase) {
         userPreferencesDao.updateEqualizerPreset(preset)
     }
 
+    suspend fun updateCrossfadeSettings(autoCrossfade: Boolean, seconds: Int) = withContext(Dispatchers.IO) {
+        userPreferencesDao.updateCrossfadeSettings(autoCrossfade, seconds)
+    }
+
     suspend fun updateApiKeys(spotifyToken: String, youtubeApiKey: String) = withContext(Dispatchers.IO) {
         userPreferencesDao.updateSpotifyConnection(spotifyToken, spotifyToken.isNotBlank())
         userPreferencesDao.updateYoutubeConnection(youtubeApiKey, youtubeApiKey.isNotBlank())

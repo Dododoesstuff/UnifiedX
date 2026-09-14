@@ -3,7 +3,9 @@ package com.example.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -42,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -55,8 +56,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.PlatformSource
 import com.example.player.PlayerUiState
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianStroke
+import com.example.ui.theme.AppBorder
+import com.example.ui.theme.AppPrimary
+import com.example.ui.theme.AppSurface
 import com.example.ui.theme.SpotifyGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -95,28 +97,32 @@ fun MiniPlayer(
     val progress = (currentPos.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
 
     val isSpotify = track.platformSource == PlatformSource.SPOTIFY
-    val accentColor = if (isSpotify) SpotifyGreen else YouTubeRed
+    val platformAccent = if (isSpotify) SpotifyGreen else YouTubeRed
 
     var isUserScrubbing by remember { mutableStateOf(false) }
     var scrubProgress by remember { mutableFloatStateOf(0f) }
 
     val activeProgress = if (isUserScrubbing) scrubProgress else progress
 
+    val cardShape = RoundedCornerShape(14.dp)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
             .offset { IntOffset(dragOffsetX.value.roundToInt(), 0) }
-            .shadow(elevation = 16.dp, shape = RoundedCornerShape(16.dp), spotColor = accentColor.copy(alpha = 0.3f))
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        ObsidianCard,
-                        Color(0xFF141822)
-                    )
-                )
+            .shadow(
+                elevation = 8.dp,
+                shape = cardShape,
+                ambientColor = Color.Black.copy(alpha = 0.5f),
+                spotColor = AppPrimary.copy(alpha = 0.15f)
             )
+            .clip(cardShape)
+            .border(
+                border = BorderStroke(width = 1.dp, color = AppBorder),
+                shape = cardShape
+            )
+            .background(AppSurface)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -156,12 +162,12 @@ fun MiniPlayer(
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Slim Hairline Seek Progress Bar
+            // Scrubbing Progress Line
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(ObsidianStroke)
+                    .background(AppBorder)
                     .pointerInput(Unit) {
                         detectTapGestures { offset ->
                             val seekRatio = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
@@ -174,23 +180,24 @@ fun MiniPlayer(
                     modifier = Modifier
                         .fillMaxWidth(activeProgress)
                         .height(3.dp)
-                        .background(accentColor)
+                        .background(AppPrimary)
                 )
             }
 
-            // Controls & Info Row
+            // Track Details & Player Action Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Album Art
+                // Artwork Thumbnail
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black)
+                        .border(1.dp, AppBorder, RoundedCornerShape(8.dp))
+                        .background(AppBorder)
                 ) {
                     AsyncImage(
                         model = track.coverUrl,
@@ -199,20 +206,21 @@ fun MiniPlayer(
                         modifier = Modifier.matchParentSize()
                     )
 
-                    // Discreet Platform Dot
+                    // Platform Source Badge
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(2.dp)
                             .size(9.dp)
                             .clip(CircleShape)
-                            .background(accentColor)
+                            .background(platformAccent)
+                            .border(1.dp, Color.Black, CircleShape)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Track Info
+                // Track Metadata
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -226,16 +234,21 @@ fun MiniPlayer(
                     )
 
                     Text(
-                        text = "${track.artist} • ${formatMs(currentPos)}",
-                        color = TextSecondary,
+                        text = if (playerState.isCrossfading) {
+                            "${track.artist} • Crossfading ✦"
+                        } else {
+                            "${track.artist} • ${formatMs(currentPos)}"
+                        },
+                        color = if (playerState.isCrossfading) AppPrimary else TextSecondary,
                         fontSize = 11.5.sp,
+                        fontWeight = if (playerState.isCrossfading) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 1.dp)
                     )
                 }
 
-                // Controls Row: Like, Previous, Play/Pause, Next
+                // Controls
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -243,13 +256,13 @@ fun MiniPlayer(
                     IconButton(
                         onClick = onLikeClick,
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(32.dp)
                             .testTag("mini_player_like")
                     ) {
                         Icon(
                             imageVector = if (track.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = if (track.isLiked) "Unlike" else "Like",
-                            tint = if (track.isLiked) YouTubeRed else TextSecondary.copy(alpha = 0.7f),
+                            tint = if (track.isLiked) AppPrimary else TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -257,7 +270,7 @@ fun MiniPlayer(
                     IconButton(
                         onClick = onSkipPreviousClick,
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(32.dp)
                             .testTag("mini_player_skip_previous")
                     ) {
                         Icon(
@@ -268,26 +281,27 @@ fun MiniPlayer(
                         )
                     }
 
-                    IconButton(
-                        onClick = onPlayPauseClick,
+                    Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
-                            .background(accentColor)
-                            .testTag("mini_player_play_pause")
+                            .background(AppPrimary)
+                            .clickable(onClick = onPlayPauseClick)
+                            .testTag("mini_player_play_pause"),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                            tint = if (isSpotify) Color.Black else Color.White,
-                            modifier = Modifier.size(22.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onSkipNextClick,
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(32.dp)
                             .testTag("mini_player_skip_next")
                     ) {
                         Icon(
@@ -302,4 +316,3 @@ fun MiniPlayer(
         }
     }
 }
-

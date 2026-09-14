@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import com.example.data.model.DownloadStatus
+import com.example.data.model.TrackDownloadState
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,7 +24,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Link
@@ -29,8 +31,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -63,11 +64,17 @@ import com.example.data.model.PlatformSource
 import com.example.player.PlayerUiState
 import com.example.sync.SyncState
 import com.example.ui.components.TrackItemRow
-import com.example.ui.theme.CrossPurple
-import com.example.ui.theme.ElectricViolet
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianDeep
-import com.example.ui.theme.ObsidianStroke
+import com.example.ui.theme.AeroCobaltDark
+import com.example.ui.theme.AeroCyanGlow
+import com.example.ui.theme.AeroGelBlueBottom
+import com.example.ui.theme.AeroGelBlueTop
+import com.example.ui.theme.AeroGelButton
+import com.example.ui.theme.AeroGlassCard
+import com.example.ui.theme.AeroIceWhite
+import com.example.ui.theme.AeroLiquidAqua
+import com.example.ui.theme.AeroSkyBlue
+import com.example.ui.theme.AeroWallpaperBackground
+import com.example.ui.theme.AeroWindowHeader
 import com.example.ui.theme.SpotifyGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -80,9 +87,11 @@ fun HomeScreen(
     playerState: PlayerUiState,
     syncState: SyncState,
     discoveryArtists: List<ArtistSpotlight>,
+    downloadStates: Map<String, TrackDownloadState> = emptyMap(),
     onTrackClick: (TrackEntity) -> Unit,
     onLikeClick: (TrackEntity) -> Unit,
     onDownloadClick: (TrackEntity) -> Unit,
+    onRetryDownload: ((TrackEntity) -> Unit)? = null,
     onAddToPlaylistClick: (TrackEntity) -> Unit,
     onShareClick: (TrackEntity) -> Unit,
     onSyncNowClick: () -> Unit,
@@ -94,7 +103,7 @@ fun HomeScreen(
 
     val isSearching = searchQuery.isNotBlank()
 
-    // Unified filtered list based on query and active filter pill
+    // Filtered list
     val displayTracks = remember(tracks, searchQuery, selectedFilter) {
         val base = if (isSearching) {
             val q = searchQuery.trim()
@@ -116,308 +125,265 @@ fun HomeScreen(
         }
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(ObsidianDeep)
-            .testTag("home_screen"),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp)
-    ) {
-        // App Header: Clean Branding & Sync Indicator
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(id = R.drawable.unifiedx_logo_modern),
-                        contentDescription = "UnifiedX Logo",
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "UnifiedX",
-                            color = TextPrimary,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.5).sp
-                        )
-                        Text(
-                            text = "Spotify & YouTube Unified",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                    }
-                }
-
-                // Quick Actions: Link Services & Sync Status Pill
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Link Services button
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(SpotifyGreen.copy(alpha = 0.15f))
-                            .clickable(onClick = onOpenLinkAccountsClick)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                            .testTag("home_link_accounts_button"),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Link,
-                            contentDescription = "Link Services",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Link Accounts",
-                            color = SpotifyGreen,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Minimalist Sync Status Pill
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(CrossPurple.copy(alpha = 0.12f))
-                            .clickable(onClick = onSyncNowClick)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                            .testTag("home_sync_badge"),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Sync,
-                            contentDescription = "Sync",
-                            tint = CrossPurple,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = if (syncState.isSyncing) "Syncing" else "Synced",
-                            color = CrossPurple,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-
-        // Clean Search Bar
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = {
-                    Text(
-                        text = "Search tracks, artists, or albums...",
-                        color = TextSecondary,
-                        fontSize = 13.5.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = if (isSearching) CrossPurple else TextSecondary,
-                        modifier = Modifier.size(19.dp)
-                    )
-                },
-                trailingIcon = {
-                    if (isSearching) {
-                        IconButton(
-                            onClick = { searchQuery = "" },
-                            modifier = Modifier.testTag("home_search_clear_button")
+    AeroWallpaperBackground(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("home_screen"),
+            contentPadding = PaddingValues(bottom = 120.dp)
+        ) {
+            // Header Title Bar
+            item {
+                AeroWindowHeader(
+                    title = "Unified Music",
+                    subtitle = "Spotify & YouTube Unified Experience",
+                    onOrbClick = onOpenLinkAccountsClick,
+                    actions = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            // Link accounts pill
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(com.example.ui.theme.AppPrimary.copy(alpha = 0.15f))
+                                    .clickable(onClick = onOpenLinkAccountsClick)
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                                    .testTag("home_link_accounts_button"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Link,
+                                    contentDescription = "Accounts",
+                                    tint = com.example.ui.theme.AppPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Accounts",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Sync pill
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(com.example.ui.theme.AppSurfaceElevated)
+                                    .clickable(onClick = onSyncNowClick)
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                                    .testTag("home_sync_badge"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Sync",
+                                    tint = com.example.ui.theme.TextSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (syncState.isSyncing) "Syncing" else "Synced",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = ObsidianCard,
-                    unfocusedContainerColor = ObsidianCard,
-                    focusedBorderColor = CrossPurple.copy(alpha = 0.6f),
-                    unfocusedBorderColor = ObsidianStroke,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary
-                ),
-                shape = RoundedCornerShape(14.dp),
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .testTag("home_top_search_bar")
-            )
-        }
-
-        // Clean Single Row of Source & Library Filter Chips
-        item {
-            Spacer(modifier = Modifier.height(10.dp))
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val filters = listOf(
-                    "ALL" to "All",
-                    "SPOTIFY" to "Spotify",
-                    "YOUTUBE" to "YouTube",
-                    "LOSSLESS" to "Hi-Res Lossless",
-                    "DOWNLOADED" to "Downloaded"
                 )
-
-                items(filters) { (key, label) ->
-                    val isSelected = selectedFilter == key
-                    val activeColor = when (key) {
-                        "SPOTIFY" -> SpotifyGreen
-                        "YOUTUBE" -> YouTubeRed
-                        else -> CrossPurple
-                    }
-
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { selectedFilter = key },
-                        label = {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = activeColor,
-                            selectedLabelColor = if (key == "SPOTIFY") Color.Black else Color.White,
-                            containerColor = ObsidianCard,
-                            labelColor = TextSecondary
-                        ),
-                        border = null,
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.height(32.dp)
-                    )
-                }
             }
-        }
 
-        // Active Search Results Mode vs Default Feed Mode
-        if (isSearching) {
+            // Search Input Field
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Search Spotify & YouTube tracks...",
+                            color = com.example.ui.theme.TextSecondary,
+                            fontSize = 13.sp
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = if (isSearching) com.example.ui.theme.AppPrimary else com.example.ui.theme.TextSecondary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (isSearching) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.testTag("home_search_clear_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear",
+                                    tint = com.example.ui.theme.TextPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = com.example.ui.theme.AppSurface,
+                        unfocusedContainerColor = com.example.ui.theme.AppSurface,
+                        focusedBorderColor = com.example.ui.theme.AppPrimary,
+                        unfocusedBorderColor = com.example.ui.theme.AppBorder,
+                        focusedTextColor = com.example.ui.theme.TextPrimary,
+                        unfocusedTextColor = com.example.ui.theme.TextPrimary
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp)
+                        .testTag("home_top_search_bar")
+                )
+            }
+
+            // Glass Filter Chips Row
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column {
-                        Text(
-                            text = "Search Results",
-                            color = TextPrimary,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${displayTracks.size} songs found",
-                            color = TextSecondary,
-                            fontSize = 12.sp
+                    val filters = listOf(
+                        "ALL" to "All Music",
+                        "SPOTIFY" to "Spotify 🟢",
+                        "YOUTUBE" to "YouTube 🔴",
+                        "LOSSLESS" to "Hi-Res Audio",
+                        "DOWNLOADED" to "Offline 📥"
+                    )
+
+                    items(filters) { (key, label) ->
+                        val isSelected = selectedFilter == key
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedFilter = key },
+                            label = {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = com.example.ui.theme.OxygenRed,
+                                selectedLabelColor = Color.White,
+                                containerColor = com.example.ui.theme.OxygenSurface,
+                                labelColor = com.example.ui.theme.OxygenTextSecondary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = com.example.ui.theme.OxygenCardBorder,
+                                selectedBorderColor = com.example.ui.theme.OxygenRed
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.height(30.dp)
                         )
                     }
+                }
+            }
 
-                    if (displayTracks.isNotEmpty()) {
-                        IconButton(
-                            onClick = { displayTracks.firstOrNull()?.let { onTrackClick(it) } },
+            // Search Results or Feed
+            if (isSearching) {
+                item {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Search Results",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${displayTracks.size} songs found",
+                                color = TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+
+                        if (displayTracks.isNotEmpty()) {
+                            AeroGelButton(
+                                onClick = { displayTracks.firstOrNull()?.let { onTrackClick(it) } },
+                                shape = CircleShape,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Play Results",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                if (displayTracks.isEmpty()) {
+                    item {
+                        Box(
                             modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(CrossPurple)
-                                .testTag("play_search_results_button")
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp, horizontal = 20.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play Results",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                            Text(
+                                text = "No matching tracks for \"$searchQuery\"",
+                                color = AeroIceWhite.copy(alpha = 0.7f),
+                                fontSize = 14.sp
                             )
                         }
                     }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (displayTracks.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 40.dp, horizontal = 20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No results found for \"$searchQuery\"",
-                            color = TextSecondary,
-                            fontSize = 14.sp
+                } else {
+                    items(displayTracks) { track ->
+                        val isCurrent = playerState.currentTrack?.id == track.id
+                        val dState = downloadStates[track.id] ?: if (track.isDownloaded) TrackDownloadState(DownloadStatus.DOWNLOADED) else TrackDownloadState(DownloadStatus.NOT_DOWNLOADED)
+                        TrackItemRow(
+                            track = track,
+                            isPlaying = isCurrent && playerState.isPlaying,
+                            isCurrentTrack = isCurrent,
+                            downloadState = dState,
+                            onTrackClick = { onTrackClick(track) },
+                            onLikeClick = { onLikeClick(track) },
+                            onDownloadClick = { onDownloadClick(track) },
+                            onRetryDownload = { onRetryDownload?.invoke(track) },
+                            onAddToPlaylistClick = { onAddToPlaylistClick(track) },
+                            onShareClick = { onShareClick(track) },
+                            modifier = Modifier.padding(horizontal = 10.dp)
                         )
                     }
                 }
             } else {
-                items(displayTracks) { track ->
-                    val isCurrent = playerState.currentTrack?.id == track.id
-                    TrackItemRow(
-                        track = track,
-                        isPlaying = isCurrent && playerState.isPlaying,
-                        isCurrentTrack = isCurrent,
-                        onTrackClick = { onTrackClick(track) },
-                        onLikeClick = { onLikeClick(track) },
-                        onDownloadClick = { onDownloadClick(track) },
-                        onAddToPlaylistClick = { onAddToPlaylistClick(track) },
-                        onShareClick = { onShareClick(track) },
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
-                }
-            }
-        } else {
-            // Refined Hero Quick-Mix Card
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .testTag("home_hero_banner"),
-                    colors = CardDefaults.cardColors(containerColor = ObsidianCard)
-                ) {
-                    Box(
+                // Windows 7 Aero Fusion Featured Glass Card
+                item {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    AeroGlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color(0xFF201335),
-                                        Color(0xFF111726)
-                                    )
-                                )
-                            )
-                            .padding(18.dp)
+                            .padding(horizontal = 16.dp)
+                            .testTag("home_hero_banner"),
+                        onClick = { tracks.firstOrNull()?.let { onTrackClick(it) } }
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -429,187 +395,179 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.AutoAwesome,
                                         contentDescription = null,
-                                        tint = ElectricViolet,
-                                        modifier = Modifier.size(14.dp)
+                                        tint = com.example.ui.theme.AppPrimary,
+                                        modifier = Modifier.size(15.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "UNIFIED FUSION",
-                                        color = ElectricViolet,
+                                        text = "UNIFIED MUSIC FUSION",
+                                        color = com.example.ui.theme.AppPrimary,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 1.sp
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
-                                    text = "Cross-Platform Mix",
-                                    color = TextPrimary,
+                                    text = "Cross-Platform Playlist Mix",
+                                    color = Color.White,
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
 
                                 Text(
-                                    text = "Spotify + YouTube unified queue",
+                                    text = "Lossless Spotify + High-Fidelity YouTube stream blend",
                                     color = TextSecondary,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
 
-                            // Quick Play Action
-                            IconButton(
+                            // Glossy Gel Play Button
+                            AeroGelButton(
                                 onClick = { tracks.firstOrNull()?.let { onTrackClick(it) } },
+                                shape = CircleShape,
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(CrossPurple)
+                                    .size(46.dp)
                                     .testTag("hero_quick_play_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
                                     contentDescription = "Play Fusion",
                                     tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            // Featured Artists Spotlight
-            if (discoveryArtists.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(22.dp))
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                // Featured Artists in Liquid Glass
+                if (discoveryArtists.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = "Featured Artists",
-                                color = TextPrimary,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
+                                text = "Spotlight Artists",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 18.dp)
                             )
-                        }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 20.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(discoveryArtists) { artist ->
-                                ArtistSpotlightCard(artist = artist)
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(discoveryArtists) { artist ->
+                                    ArtistSpotlightGlassCard(artist = artist)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Music Library List Section
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Tracks",
-                            color = TextPrimary,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${displayTracks.size} songs",
-                            color = TextSecondary,
-                            fontSize = 12.sp
-                        )
-                    }
-
-                    // Play All & Shuffle Buttons
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(
-                            onClick = {
-                                val shuffled = displayTracks.shuffled()
-                                shuffled.firstOrNull()?.let { onTrackClick(it) }
-                            },
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(ObsidianCard)
-                                .testTag("library_shuffle_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shuffle,
-                                contentDescription = "Shuffle",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                displayTracks.firstOrNull()?.let { onTrackClick(it) }
-                            },
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(CrossPurple)
-                                .testTag("library_play_all_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play All",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (displayTracks.isEmpty()) {
+                // Music Tracks List Header
                 item {
-                    Box(
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = 18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "No songs in this view",
-                            color = TextSecondary,
-                            fontSize = 13.sp
+                        Column {
+                            Text(
+                                text = "Trending Catalog",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${displayTracks.size} songs ready for instant streaming",
+                                color = TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+
+                        // Shuffle & Play All Gel Buttons
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IconButton(
+                                onClick = {
+                                    val shuffled = displayTracks.shuffled()
+                                    shuffled.firstOrNull()?.let { onTrackClick(it) }
+                                },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33FFFFFF))
+                                    .testTag("library_shuffle_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shuffle,
+                                    contentDescription = "Shuffle",
+                                    tint = AeroIceWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            AeroGelButton(
+                                onClick = { displayTracks.firstOrNull()?.let { onTrackClick(it) } },
+                                shape = CircleShape,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .testTag("library_play_all_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Play All",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                if (displayTracks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No tracks available in this filter",
+                                color = AeroIceWhite.copy(alpha = 0.7f),
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else {
+                    items(displayTracks) { track ->
+                        val isCurrent = playerState.currentTrack?.id == track.id
+                        val dState = downloadStates[track.id] ?: if (track.isDownloaded) TrackDownloadState(DownloadStatus.DOWNLOADED) else TrackDownloadState(DownloadStatus.NOT_DOWNLOADED)
+                        TrackItemRow(
+                            track = track,
+                            isPlaying = isCurrent && playerState.isPlaying,
+                            isCurrentTrack = isCurrent,
+                            downloadState = dState,
+                            onTrackClick = { onTrackClick(track) },
+                            onLikeClick = { onLikeClick(track) },
+                            onDownloadClick = { onDownloadClick(track) },
+                            onRetryDownload = { onRetryDownload?.invoke(track) },
+                            onAddToPlaylistClick = { onAddToPlaylistClick(track) },
+                            onShareClick = { onShareClick(track) },
+                            modifier = Modifier.padding(horizontal = 10.dp)
                         )
                     }
-                }
-            } else {
-                items(displayTracks) { track ->
-                    val isCurrent = playerState.currentTrack?.id == track.id
-                    TrackItemRow(
-                        track = track,
-                        isPlaying = isCurrent && playerState.isPlaying,
-                        isCurrentTrack = isCurrent,
-                        onTrackClick = { onTrackClick(track) },
-                        onLikeClick = { onLikeClick(track) },
-                        onDownloadClick = { onDownloadClick(track) },
-                        onAddToPlaylistClick = { onAddToPlaylistClick(track) },
-                        onShareClick = { onShareClick(track) },
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
                 }
             }
         }
@@ -617,26 +575,22 @@ fun HomeScreen(
 }
 
 @Composable
-fun ArtistSpotlightCard(artist: ArtistSpotlight) {
+fun ArtistSpotlightGlassCard(artist: ArtistSpotlight) {
     val platformColor = if (artist.platform == PlatformSource.SPOTIFY) SpotifyGreen else YouTubeRed
 
-    Card(
-        modifier = Modifier
-            .width(115.dp)
-            .clip(RoundedCornerShape(14.dp)),
-        colors = CardDefaults.cardColors(containerColor = ObsidianCard)
+    AeroGlassCard(
+        modifier = Modifier.width(118.dp),
+        contentPadding = 8.dp
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(68.dp)
+                    .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray)
+                    .background(Color(0xFF092040))
             ) {
                 AsyncImage(
                     model = artist.imageUrl,
@@ -646,12 +600,12 @@ fun ArtistSpotlightCard(artist: ArtistSpotlight) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = artist.name,
-                color = TextPrimary,
-                fontSize = 12.sp,
+                color = Color.White,
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -659,8 +613,8 @@ fun ArtistSpotlightCard(artist: ArtistSpotlight) {
 
             Text(
                 text = artist.genre,
-                color = TextSecondary,
-                fontSize = 10.sp,
+                color = AeroIceWhite.copy(alpha = 0.7f),
+                fontSize = 9.5.sp,
                 maxLines = 1
             )
         }
