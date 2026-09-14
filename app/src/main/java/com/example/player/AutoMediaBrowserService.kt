@@ -118,7 +118,7 @@ class AutoMediaBrowserService : MediaBrowserServiceCompat() {
         serviceScope.launch {
             AudioPlayerHolder.playerManager?.uiState?.collectLatest { state ->
                 updatePlaybackState(state)
-                updateMetadata(state.currentTrack)
+                updateMetadata(state)
                 if (state.currentTrack != null) {
                     val notification = buildNotification(state)
                     startForeground(NOTIFICATION_ID, notification)
@@ -129,8 +129,15 @@ class AutoMediaBrowserService : MediaBrowserServiceCompat() {
         }
     }
 
-    private fun updateMetadata(track: TrackEntity?) {
-        if (track == null) return
+    private fun updateMetadata(state: PlayerUiState) {
+        val track = state.currentTrack ?: return
+        
+        val activeLyric = if (state.activeLyricIndex in state.parsedLyrics.indices) {
+            state.parsedLyrics[state.activeLyricIndex].text
+        } else {
+            "${track.artist} (${track.platformSource.displayName})"
+        }
+
         val metadata = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, track.id)
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track.title)
@@ -139,7 +146,8 @@ class AutoMediaBrowserService : MediaBrowserServiceCompat() {
             .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, track.durationMs)
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, track.coverUrl)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, track.title)
-            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "${track.artist} (${track.platformSource.displayName})")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, activeLyric) // Real-time synced lyric
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, track.album)
             .build()
         mediaSession?.setMetadata(metadata)
     }

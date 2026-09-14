@@ -95,6 +95,10 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     val playerState by viewModel.playerUiState.collectAsState()
     val syncState by viewModel.syncUiState.collectAsState()
     val collabState by viewModel.collabUiState.collectAsState()
+    val spotifyOAuthState by viewModel.spotifyOAuthState.collectAsState()
+    val youtubeOAuthState by viewModel.youtubeOAuthState.collectAsState()
+    val savedSpotifyAccounts by viewModel.savedSpotifyAccounts.collectAsState()
+    val savedYouTubeAccounts by viewModel.savedYouTubeAccounts.collectAsState()
 
     val allTracks by viewModel.allTracks.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
@@ -522,22 +526,84 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     ) {
         ServiceLoginScreen(
             syncState = syncState,
+            allPlaylists = playlists,
+            allTracks = allTracks,
+            spotifyOAuthState = spotifyOAuthState,
+            youtubeOAuthState = youtubeOAuthState,
+            savedSpotifyAccounts = savedSpotifyAccounts,
+            savedYouTubeAccounts = savedYouTubeAccounts,
+            onLoginWithEmail = { platform, email, password, displayName, onComplete ->
+                viewModel.loginWithEmail(platform, email, password, displayName) { success, error ->
+                    onComplete(success, error)
+                    if (success) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Logged into ${platform.displayName} ($email)")
+                        }
+                    }
+                }
+            },
+            onSwitchAccount = { platform, email, displayName ->
+                viewModel.switchAccount(platform, email, displayName)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Switched to ${platform.displayName} ($email)")
+                }
+            },
+            onSignOutAccount = { platform ->
+                viewModel.signOutAccount(platform)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Signed out of ${platform.displayName}")
+                }
+            },
+            onRemoveSavedAccount = { platform, email ->
+                viewModel.removeSavedAccount(platform, email)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Removed $email from saved accounts")
+                }
+            },
             onLinkSpotify = { token, username ->
                 viewModel.updateAccountCredential(com.example.data.model.PlatformSource.SPOTIFY, token, username)
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Spotify account linked & credentials securely stored in Room")
+                    snackbarHostState.showSnackbar("Spotify account linked & authenticated")
                 }
             },
             onLinkYouTube = { apiKey, channelName ->
                 viewModel.updateAccountCredential(com.example.data.model.PlatformSource.YOUTUBE, apiKey, channelName)
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("YouTube account linked & credentials securely stored in Room")
+                    snackbarHostState.showSnackbar("YouTube account linked & authenticated")
                 }
             },
-            onApplyPreset = { preset ->
-                viewModel.applyAccountPreset(preset)
+            onExchangeOAuthCode = { source, code ->
+                val oauthPlatform = if (source == com.example.data.model.PlatformSource.SPOTIFY) {
+                    com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+                } else {
+                    com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+                }
+                viewModel.exchangeOAuthCode(oauthPlatform, code)
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Connected as ${preset.username} (${preset.tier})")
+                    snackbarHostState.showSnackbar("Exchanging OAuth code with ${oauthPlatform.displayName}...")
+                }
+            },
+            onRefreshOAuthToken = { source ->
+                val oauthPlatform = if (source == com.example.data.model.PlatformSource.SPOTIFY) {
+                    com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+                } else {
+                    com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+                }
+                viewModel.refreshOAuthToken(oauthPlatform)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Refreshing OAuth token for ${oauthPlatform.displayName}...")
+                }
+            },
+            onTransferPlaylist = { sourcePlatform, targetPlatform, playlistTitle, tracks ->
+                viewModel.transferPlaylist(sourcePlatform, targetPlatform, playlistTitle, tracks)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Transferring '$playlistTitle' to ${targetPlatform.displayName}...")
+                }
+            },
+            onTransferLikedSongs = { sourcePlatform, targetPlatform ->
+                viewModel.transferLikedSongs(sourcePlatform, targetPlatform)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Transferring Liked Songs to ${targetPlatform.displayName}...")
                 }
             },
             onDisconnectPlatform = { platform ->

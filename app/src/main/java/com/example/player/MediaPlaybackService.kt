@@ -86,6 +86,7 @@ class MediaPlaybackService : Service() {
     private fun observePlaybackState() {
         serviceScope.launch {
             AudioPlayerHolder.playerManager?.uiState?.collectLatest { state ->
+                updateMetadata(state)
                 updatePlaybackState(state)
                 MusicAppWidgetProvider.updateAllWidgets(this@MediaPlaybackService, state)
                 if (state.currentTrack != null) {
@@ -96,6 +97,31 @@ class MediaPlaybackService : Service() {
                 }
             }
         }
+    }
+
+    private fun updateMetadata(state: PlayerUiState) {
+        val track = state.currentTrack ?: return
+        
+        // Find the active lyric line for real-time display
+        val activeLyric = if (state.activeLyricIndex in state.parsedLyrics.indices) {
+            state.parsedLyrics[state.activeLyricIndex].text
+        } else {
+            "${track.artist} (${track.platformSource.displayName})"
+        }
+
+        val metadata = android.support.v4.media.MediaMetadataCompat.Builder()
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID, track.id)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, track.title)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, track.artist)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM, track.album)
+            .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, track.durationMs)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, track.coverUrl)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, track.title)
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, activeLyric) // Real-time synced lyric
+            .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, track.album)
+            .build()
+
+        mediaSession?.setMetadata(metadata)
     }
 
     private fun updatePlaybackState(state: PlayerUiState) {

@@ -56,6 +56,40 @@ data class SpotifySavedTracksResponse(
     @Json(name = "items") val items: List<SpotifySavedTrackObject> = emptyList()
 )
 
+data class SpotifyPlaylistItem(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "description") val description: String? = null,
+    @Json(name = "images") val images: List<SpotifyImageItem> = emptyList(),
+    @Json(name = "tracks") val tracks: SpotifyPlaylistTracksInfo? = null
+)
+
+data class SpotifyPlaylistTracksInfo(
+    @Json(name = "total") val total: Int = 0
+)
+
+data class SpotifyPlaylistsResponse(
+    @Json(name = "items") val items: List<SpotifyPlaylistItem> = emptyList()
+)
+
+data class SpotifyPlaylistTrackObject(
+    @Json(name = "track") val track: SpotifyTrackItem
+)
+
+data class SpotifyPlaylistTracksResponse(
+    @Json(name = "items") val items: List<SpotifyPlaylistTrackObject> = emptyList()
+)
+
+data class SpotifyCreatePlaylistRequest(
+    @Json(name = "name") val name: String,
+    @Json(name = "description") val description: String = "Transferred via Cross-Platform Sync",
+    @Json(name = "public") val isPublic: Boolean = false
+)
+
+data class SpotifyAddTracksRequest(
+    @Json(name = "uris") val uris: List<String>
+)
+
 data class SpotifySearchTrackWrapper(
     @Json(name = "items") val items: List<SpotifyTrackItem> = emptyList()
 )
@@ -73,8 +107,46 @@ interface SpotifyApiService {
     @GET("v1/me/tracks")
     suspend fun getSavedTracks(
         @Header("Authorization") authHeader: String,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 50
     ): Response<SpotifySavedTracksResponse>
+
+    @retrofit2.http.PUT("v1/me/tracks")
+    suspend fun saveTrackForUser(
+        @Header("Authorization") authHeader: String,
+        @Query("ids") ids: String
+    ): Response<Unit>
+
+    @retrofit2.http.DELETE("v1/me/tracks")
+    suspend fun removeTrackForUser(
+        @Header("Authorization") authHeader: String,
+        @Query("ids") ids: String
+    ): Response<Unit>
+
+    @GET("v1/me/playlists")
+    suspend fun getUserPlaylists(
+        @Header("Authorization") authHeader: String,
+        @Query("limit") limit: Int = 50
+    ): Response<SpotifyPlaylistsResponse>
+
+    @GET("v1/playlists/{playlist_id}/tracks")
+    suspend fun getPlaylistTracks(
+        @Header("Authorization") authHeader: String,
+        @retrofit2.http.Path("playlist_id") playlistId: String
+    ): Response<SpotifyPlaylistTracksResponse>
+
+    @retrofit2.http.POST("v1/users/{user_id}/playlists")
+    suspend fun createPlaylist(
+        @Header("Authorization") authHeader: String,
+        @retrofit2.http.Path("user_id") userId: String,
+        @retrofit2.http.Body request: SpotifyCreatePlaylistRequest
+    ): Response<SpotifyPlaylistItem>
+
+    @retrofit2.http.POST("v1/playlists/{playlist_id}/tracks")
+    suspend fun addTracksToPlaylist(
+        @Header("Authorization") authHeader: String,
+        @retrofit2.http.Path("playlist_id") playlistId: String,
+        @retrofit2.http.Body request: SpotifyAddTracksRequest
+    ): Response<Unit>
 
     @GET("v1/search")
     suspend fun searchTracks(

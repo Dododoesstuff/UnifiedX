@@ -60,7 +60,65 @@ data class YouTubeChannelItem(
 
 data class YouTubeChannelSnippet(
     @Json(name = "title") val title: String,
-    @Json(name = "description") val description: String? = null
+    @Json(name = "description") val description: String? = null,
+    @Json(name = "thumbnails") val thumbnails: YouTubeThumbnailsInfo? = null
+)
+
+data class YouTubePlaylistResponse(
+    @Json(name = "items") val items: List<YouTubePlaylistItem> = emptyList()
+)
+
+data class YouTubePlaylistItem(
+    @Json(name = "id") val id: String,
+    @Json(name = "snippet") val snippet: YouTubeSnippetInfo
+)
+
+data class YouTubePlaylistItemListResponse(
+    @Json(name = "items") val items: List<YouTubePlaylistItemDetail> = emptyList()
+)
+
+data class YouTubePlaylistItemDetail(
+    @Json(name = "id") val id: String,
+    @Json(name = "snippet") val snippet: YouTubePlaylistItemSnippet
+)
+
+data class YouTubePlaylistItemSnippet(
+    @Json(name = "title") val title: String,
+    @Json(name = "description") val description: String? = null,
+    @Json(name = "resourceId") val resourceId: YouTubeResourceId? = null,
+    @Json(name = "thumbnails") val thumbnails: YouTubeThumbnailsInfo? = null
+)
+
+data class YouTubeResourceId(
+    @Json(name = "kind") val kind: String? = null,
+    @Json(name = "videoId") val videoId: String? = null
+)
+
+data class YouTubeVideoListResponse(
+    @Json(name = "items") val items: List<YouTubeVideoItem> = emptyList()
+)
+
+data class YouTubeVideoItem(
+    @Json(name = "id") val id: String,
+    @Json(name = "snippet") val snippet: YouTubeSnippetInfo
+)
+
+data class YouTubeCreatePlaylistRequest(
+    @Json(name = "snippet") val snippet: YouTubeCreatePlaylistSnippet
+)
+
+data class YouTubeCreatePlaylistSnippet(
+    @Json(name = "title") val title: String,
+    @Json(name = "description") val description: String = "Transferred via Cross-Platform Sync"
+)
+
+data class YouTubeInsertPlaylistItemRequest(
+    @Json(name = "snippet") val snippet: YouTubeInsertPlaylistItemSnippet
+)
+
+data class YouTubeInsertPlaylistItemSnippet(
+    @Json(name = "playlistId") val playlistId: String,
+    @Json(name = "resourceId") val resourceId: YouTubeResourceId
 )
 
 interface YouTubeApiService {
@@ -76,10 +134,58 @@ interface YouTubeApiService {
 
     @GET("youtube/v3/channels")
     suspend fun getMyChannel(
+        @retrofit2.http.Header("Authorization") authHeader: String? = null,
         @Query("part") part: String = "snippet",
         @Query("mine") mine: Boolean = true,
-        @Query("key") apiKey: String
+        @Query("key") apiKey: String? = null
     ): Response<YouTubeChannelResponse>
+
+    @GET("youtube/v3/playlists")
+    suspend fun getMyPlaylists(
+        @retrofit2.http.Header("Authorization") authHeader: String? = null,
+        @Query("part") part: String = "snippet",
+        @Query("mine") mine: Boolean = true,
+        @Query("maxResults") maxResults: Int = 50,
+        @Query("key") apiKey: String? = null
+    ): Response<YouTubePlaylistResponse>
+
+    @GET("youtube/v3/playlistItems")
+    suspend fun getPlaylistItems(
+        @retrofit2.http.Header("Authorization") authHeader: String? = null,
+        @Query("part") part: String = "snippet",
+        @Query("playlistId") playlistId: String,
+        @Query("maxResults") maxResults: Int = 50,
+        @Query("key") apiKey: String? = null
+    ): Response<YouTubePlaylistItemListResponse>
+
+    @GET("youtube/v3/videos")
+    suspend fun getLikedVideos(
+        @retrofit2.http.Header("Authorization") authHeader: String,
+        @Query("part") part: String = "snippet",
+        @Query("myRating") myRating: String = "like",
+        @Query("maxResults") maxResults: Int = 50
+    ): Response<YouTubeVideoListResponse>
+
+    @retrofit2.http.POST("youtube/v3/videos/rate")
+    suspend fun rateVideo(
+        @retrofit2.http.Header("Authorization") authHeader: String,
+        @Query("id") videoId: String,
+        @Query("rating") rating: String // "like" or "none"
+    ): Response<Unit>
+
+    @retrofit2.http.POST("youtube/v3/playlists")
+    suspend fun createPlaylist(
+        @retrofit2.http.Header("Authorization") authHeader: String,
+        @Query("part") part: String = "snippet",
+        @retrofit2.http.Body request: YouTubeCreatePlaylistRequest
+    ): Response<YouTubePlaylistItem>
+
+    @retrofit2.http.POST("youtube/v3/playlistItems")
+    suspend fun insertPlaylistItem(
+        @retrofit2.http.Header("Authorization") authHeader: String,
+        @Query("part") part: String = "snippet",
+        @retrofit2.http.Body request: YouTubeInsertPlaylistItemRequest
+    ): Response<Unit>
 
     companion object {
         private const val BASE_URL = "https://www.googleapis.com/"

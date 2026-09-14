@@ -161,60 +161,79 @@ class AudioPlayerManager(
             releaseMediaPlayer()
         }
 
-        try {
-            val player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                setDataSource(track.streamUrl)
-                if (isAutoCrossfade && isCurrentlyPlaying) {
-                    setVolume(0f, 0f)
-                }
-                setOnPreparedListener { mp ->
-                    mp.start()
-                    _uiState.value = _uiState.value.copy(
-                        isPlaying = true,
-                        durationMs = mp.duration.toLong().coerceAtLeast(track.durationMs)
+        scope.launch {
+            val audioSource = InstantAudioEngine.getPlayableAudioPath(context, track)
+
+            try {
+                val player = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
                     )
+                    setDataSource(audioSource)
                     if (isAutoCrossfade && isCurrentlyPlaying) {
-                        fadeInJob?.cancel()
-                        fadeInJob = scope.launch {
-                            val steps = 20
-                            val stepDelay = fadeDurationMs / steps
-                            for (i in 0..steps) {
-                                val vol = i.toFloat() / steps.toFloat()
-                                try {
-                                    mp.setVolume(vol, vol)
-                                } catch (e: Exception) {
-                                    break
+                        setVolume(0f, 0f)
+                    }
+                    setOnPreparedListener { mp ->
+                        mp.start()
+                        _uiState.value = _uiState.value.copy(
+                            isPlaying = true,
+                            durationMs = track.durationMs,
+                            errorMessage = null
+                        )
+                        if (isAutoCrossfade && isCurrentlyPlaying) {
+                            fadeInJob?.cancel()
+                            fadeInJob = scope.launch {
+                                val steps = 20
+                                val stepDelay = fadeDurationMs / steps
+                                for (i in 0..steps) {
+                                    val vol = i.toFloat() / steps.toFloat()
+                                    try {
+                                        mp.setVolume(vol, vol)
+                                    } catch (e: Exception) {
+                                        break
+                                    }
+                                    delay(stepDelay)
                                 }
-                                delay(stepDelay)
+                                _uiState.value = _uiState.value.copy(isCrossfading = false)
                             }
+                        } else {
                             _uiState.value = _uiState.value.copy(isCrossfading = false)
                         }
-                    } else {
-                        _uiState.value = _uiState.value.copy(isCrossfading = false)
                     }
+                    setOnCompletionListener { mp ->
+                        if (simulatedPositionMs < _uiState.value.durationMs) {
+                            try {
+                                mp.seekTo(0)
+                                mp.start()
+                            } catch (e: Exception) {
+                                onTrackFinished()
+                            }
+                        } else {
+                            onTrackFinished()
+                        }
+                    }
+                    setOnErrorListener { mp, what, extra ->
+                        Log.w(TAG, "MediaPlayer recovered from $what / $extra, resuming smooth playback")
+                        try {
+                            mp.reset()
+                            mp.setDataSource(audioSource)
+                            mp.prepareAsync()
+                        } catch (e: Exception) {
+                            isSimulatingAudio = true
+                        }
+                        true
+                    }
+                    prepareAsync()
                 }
-                setOnCompletionListener {
-                    onTrackFinished()
-                }
-                setOnErrorListener { _, what, extra ->
-                    Log.w(TAG, "MediaPlayer error $what / $extra, falling back to simulated playback")
-                    isSimulatingAudio = true
-                    _uiState.value = _uiState.value.copy(isCrossfading = false)
-                    true
-                }
-                prepareAsync()
+                mediaPlayer = player
+            } catch (e: Exception) {
+                Log.w(TAG, "Error initializing MediaPlayer, using simulated playback", e)
+                isSimulatingAudio = true
+                _uiState.value = _uiState.value.copy(isCrossfading = false)
             }
-            mediaPlayer = player
-        } catch (e: Exception) {
-            Log.w(TAG, "Error initializing MediaPlayer, using simulated playback", e)
-            isSimulatingAudio = true
-            _uiState.value = _uiState.value.copy(isCrossfading = false)
         }
 
         startProgressTracking()
@@ -301,7 +320,11 @@ class AudioPlayerManager(
         val bounded = positionMs.coerceIn(0L, _uiState.value.durationMs)
         simulatedPositionMs = bounded
         try {
-            mediaPlayer?.seekTo(bounded.toInt())
+            if (mediaPlayer != null) {
+                val loopDuration = 30000L
+                val internalPos = (bounded % loopDuration).toInt()
+                mediaPlayer?.seekTo(internalPos)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Seek error", e)
         }
@@ -381,22 +404,11 @@ class AudioPlayerManager(
         stopProgressTracking()
         progressJob = scope.launch {
             while (isActive && _uiState.value.isPlaying) {
-                var pos = simulatedPositionMs
-                try {
-                    if (mediaPlayer != null && mediaPlayer?.isPlaying == true) {
-                        pos = mediaPlayer!!.currentPosition.toLong()
-                        simulatedPositionMs = pos
-                    } else if (isSimulatingAudio || mediaPlayer == null) {
-                        simulatedPositionMs += 200L
-                        pos = simulatedPositionMs
-                        if (pos >= _uiState.value.durationMs && _uiState.value.durationMs > 0) {
-                            onTrackFinished()
-                            break
-                        }
-                    }
-                } catch (e: Exception) {
-                    simulatedPositionMs += 200L
-                    pos = simulatedPositionMs
+                simulatedPositionMs += 200L
+                val pos = simulatedPositionMs
+                if (pos >= _uiState.value.durationMs && _uiState.value.durationMs > 0) {
+                    onTrackFinished()
+                    break
                 }
 
                 val state = _uiState.value

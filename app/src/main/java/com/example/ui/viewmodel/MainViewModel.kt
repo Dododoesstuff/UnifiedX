@@ -54,6 +54,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val waveformEngine = com.example.visualizer.AudioWaveformEngine(application, viewModelScope)
     val seamlessMusicApi = com.example.data.engine.SeamlessUnifiedMusicApi(repository)
 
+    // Secure OAuth 2.0 repository and EncryptedSharedPreferences storage
+    val secureOAuthStorage: com.example.data.local.security.SecureOAuthStorage =
+        com.example.data.local.security.EncryptedOAuthStorage(application)
+    val oauthRepository: com.example.data.repository.oauth.OAuthRepository =
+        com.example.data.repository.oauth.OAuthRepositoryImpl(
+            secureStorage = secureOAuthStorage,
+            userPreferencesDao = database.userPreferencesDao(),
+            externalScope = viewModelScope
+        )
+
+    val spotifyOAuthState = oauthRepository.spotifyAuthState
+    val youtubeOAuthState = oauthRepository.youtubeAuthState
+
+    private val _savedSpotifyAccounts = MutableStateFlow<List<com.example.data.local.security.SavedAccountRecord>>(emptyList())
+    val savedSpotifyAccounts: StateFlow<List<com.example.data.local.security.SavedAccountRecord>> = _savedSpotifyAccounts.asStateFlow()
+
+    private val _savedYouTubeAccounts = MutableStateFlow<List<com.example.data.local.security.SavedAccountRecord>>(emptyList())
+    val savedYouTubeAccounts: StateFlow<List<com.example.data.local.security.SavedAccountRecord>> = _savedYouTubeAccounts.asStateFlow()
+
+    fun refreshSavedAccounts() {
+        _savedSpotifyAccounts.value = oauthRepository.getSavedAccounts(com.example.data.model.oauth.OAuthPlatform.SPOTIFY)
+        _savedYouTubeAccounts.value = oauthRepository.getSavedAccounts(com.example.data.model.oauth.OAuthPlatform.YOUTUBE)
+    }
+
     val playerUiState = playerManager.uiState
     val syncUiState = syncManager.syncState
     val collabUiState = collabManager.sessionState
@@ -156,6 +180,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (filter) {
             "SPOTIFY" -> filteredByQuery.filter { it.platformSource == PlatformSource.SPOTIFY }
             "YOUTUBE" -> filteredByQuery.filter { it.platformSource == PlatformSource.YOUTUBE }
+            "UNIFIED" -> filteredByQuery.filter { it.spotifyEquivalentId != null || it.youtubeEquivalentId != null }
             "DOWNLOADED" -> filteredByQuery.filter { it.isDownloaded }
             else -> filteredByQuery
         }
@@ -197,6 +222,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AudioPlayerHolder.playerManager = playerManager
         viewModelScope.launch {
             repository.ensureSeeded()
+            refreshSavedAccounts()
         }
         viewModelScope.launch {
             userPreferences.collect { prefs ->
@@ -326,6 +352,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val newLiked = !track.isLiked
             repository.toggleLike(track.id, track.isLiked)
             playerManager.updateLikedState(track.id, newLiked)
+            seamlessMusicApi.syncLikeToPlatform(track, newLiked)
         }
     }
 
@@ -440,10 +467,174 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateAccountCredential(source: PlatformSource, token: String, username: String) {
         syncManager.updateAccountToken(source, token, username)
+        val oauthPlatform = when (source) {
+            PlatformSource.SPOTIFY -> com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+            PlatformSource.YOUTUBE -> com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+            PlatformSource.LOCAL -> null
+        }
+        if (oauthPlatform != null && token.isNotBlank()) {
+            viewModelScope.launch {
+                oauthRepository.saveDirectAccessToken(oauthPlatform, token, username)
+            }
+        }
     }
 
-    fun applyAccountPreset(preset: com.example.sync.DemoProfilePreset) {
-        syncManager.applyPreset(preset)
+    fun buildOAuthUrl(
+        platform: com.example.data.model.oauth.OAuthPlatform,
+        clientId: String? = null,
+        redirectUri: String? = null
+    ): String {
+        return oauthRepository.buildAuthorizationUrl(platform, clientId, redirectUri)
+    }
+
+    fun exchangeOAuthCode(
+        platform: com.example.data.model.oauth.OAuthPlatform,
+        code: String,
+        redirectUri: String? = null,
+        clientId: String? = null,
+        clientSecret: String? = null
+    ) {
+        viewModelScope.launch {
+            val result = oauthRepository.exchangeAuthorizationCode(platform, code, redirectUri, clientId, clientSecret)
+            if (result.isSuccess) {
+                val token = result.getOrThrow()
+                syncManager.updateAccountToken(platform.platformSource, token.accessToken, platform.displayName)
+            }
+        }
+    }
+
+    fun refreshOAuthToken(platform: com.example.data.model.oauth.OAuthPlatform) {
+        viewModelScope.launch {
+            val result = oauthRepository.refreshAccessToken(platform, force = true)
+            if (result.isSuccess) {
+                val token = result.getOrThrow()
+                syncManager.updateAccountToken(platform.platformSource, token.accessToken, platform.displayName)
+            }
+        }
+    }
+
+    fun signOutOAuth(platform: com.example.data.model.oauth.OAuthPlatform) {
+        viewModelScope.launch {
+            oauthRepository.signOut(platform)
+            syncManager.disconnectService(platform.platformSource)
+            refreshSavedAccounts()
+        }
+    }
+
+    fun signOutAccount(platformSource: PlatformSource) {
+        val platform = if (platformSource == PlatformSource.SPOTIFY) {
+            com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+        } else {
+            com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+        }
+        signOutOAuth(platform)
+    }
+
+    fun loginWithEmail(
+        platform: com.example.data.model.oauth.OAuthPlatform,
+        email: String,
+        password: String,
+        displayName: String? = null,
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
+    ) {
+        viewModelScope.launch {
+            val result = oauthRepository.loginWithAccountEmail(platform, email, password, displayName)
+            if (result.isSuccess) {
+                val profile = result.getOrThrow()
+                syncManager.updateAccountToken(
+                    platform.platformSource,
+                    "sec_session_${platform.name.lowercase()}_${profile.id.hashCode()}",
+                    profile.displayName
+                )
+                refreshSavedAccounts()
+                onResult(true, null)
+            } else {
+                val errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Failed to log in"
+                onResult(false, errorMsg)
+            }
+        }
+    }
+
+    fun loginWithEmail(
+        platformSource: PlatformSource,
+        email: String,
+        password: String,
+        displayName: String? = null,
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
+    ) {
+        val platform = if (platformSource == PlatformSource.SPOTIFY) {
+            com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+        } else {
+            com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+        }
+        loginWithEmail(platform, email, password, displayName, onResult)
+    }
+
+    fun switchAccount(
+        platform: com.example.data.model.oauth.OAuthPlatform,
+        email: String,
+        displayName: String? = null
+    ) {
+        viewModelScope.launch {
+            val result = oauthRepository.switchAccount(platform, email, displayName)
+            if (result.isSuccess) {
+                val profile = result.getOrThrow()
+                syncManager.updateAccountToken(
+                    platform.platformSource,
+                    "sec_session_${platform.name.lowercase()}_${profile.id.hashCode()}",
+                    profile.displayName
+                )
+                refreshSavedAccounts()
+            }
+        }
+    }
+
+    fun switchAccount(
+        platformSource: PlatformSource,
+        email: String,
+        displayName: String? = null
+    ) {
+        val platform = if (platformSource == PlatformSource.SPOTIFY) {
+            com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+        } else {
+            com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+        }
+        switchAccount(platform, email, displayName)
+    }
+
+    fun getSavedAccounts(platform: com.example.data.model.oauth.OAuthPlatform): List<com.example.data.local.security.SavedAccountRecord> {
+        return oauthRepository.getSavedAccounts(platform)
+    }
+
+    fun removeSavedAccount(platform: com.example.data.model.oauth.OAuthPlatform, email: String) {
+        oauthRepository.removeSavedAccount(platform, email)
+        refreshSavedAccounts()
+    }
+
+    fun removeSavedAccount(platformSource: PlatformSource, email: String) {
+        val platform = if (platformSource == PlatformSource.SPOTIFY) {
+            com.example.data.model.oauth.OAuthPlatform.SPOTIFY
+        } else {
+            com.example.data.model.oauth.OAuthPlatform.YOUTUBE
+        }
+        removeSavedAccount(platform, email)
+    }
+
+    fun transferPlaylist(
+        sourcePlatform: PlatformSource,
+        targetPlatform: PlatformSource,
+        playlistTitle: String,
+        tracks: List<TrackEntity>
+    ) {
+        viewModelScope.launch {
+            syncManager.transferPlaylist(sourcePlatform, targetPlatform, playlistTitle, tracks)
+        }
+    }
+
+    fun transferLikedSongs(sourcePlatform: PlatformSource, targetPlatform: PlatformSource) {
+        viewModelScope.launch {
+            syncManager.transferLikedSongs(sourcePlatform, targetPlatform)
+        }
     }
 
     fun disconnectService(platform: PlatformSource) {

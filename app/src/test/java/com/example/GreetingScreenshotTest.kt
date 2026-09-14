@@ -3,7 +3,7 @@ package com.example
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.example.data.model.PlatformSource
-import com.example.ui.screens.ArtistSpotlightCard
+import com.example.ui.screens.ArtistSpotlightGlassCard
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.ArtistSpotlight
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
@@ -26,7 +26,7 @@ class GreetingScreenshotTest {
   fun artistSpotlightScreenshot() {
     composeTestRule.setContent {
       MyApplicationTheme {
-        ArtistSpotlightCard(
+        ArtistSpotlightGlassCard(
           artist = ArtistSpotlight(
             name = "Aura Nova",
             platform = PlatformSource.SPOTIFY,

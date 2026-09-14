@@ -194,6 +194,24 @@ fun TrackItemRow(
                     )
                 }
 
+                if (onSwitchPlatformCounterpart != null && (track.spotifyEquivalentId != null || track.youtubeEquivalentId != null)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (isSpotify) YouTubeRed.copy(alpha = 0.18f) else SpotifyGreen.copy(alpha = 0.18f))
+                            .clickable { onSwitchPlatformCounterpart(track) }
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = if (isSpotify) "⇄ YouTube 🔴" else "⇄ Spotify 🟢",
+                            color = if (isSpotify) YouTubeRed else SpotifyGreen,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 when (downloadState.status) {
                     DownloadStatus.DOWNLOADED -> {
                         Row(
