@@ -1,5 +1,6 @@
 package com.example.data.engine
 
+import com.example.data.engine.ITunesApiService
 import com.example.data.local.TrackEntity
 import com.example.data.model.AudioQuality
 import com.example.data.model.PlatformSource
@@ -31,6 +32,7 @@ class SeamlessUnifiedMusicApi(
 ) {
     private val spotifyApi = SpotifyApiService.create()
     private val youtubeApi = YouTubeApiService.create()
+    private val itunesApi = ITunesApiService.create()
 
     private val sampleCovers = listOf(
         "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80",
@@ -119,7 +121,7 @@ class SeamlessUnifiedMusicApi(
                 query = query,
                 limit = 10
             )
-            if (searchResponse.isSuccessful && searchResponse.body()?.tracks != null) {
+            if (searchResponse.isSuccessful && searchResponse.body()?.tracks != null && searchResponse.body()!!.tracks!!.items.isNotEmpty()) {
                 for (item in searchResponse.body()!!.tracks!!.items) {
                     val artist = item.artists.firstOrNull()?.name ?: "Spotify Artist"
                     val album = item.album?.name ?: "Spotify Master"
@@ -147,9 +149,42 @@ class SeamlessUnifiedMusicApi(
                         )
                     )
                 }
+                return tracks
             }
         } catch (e: Exception) {
-            // Graceful handling
+            // Graceful handling, fall through to iTunes proxy
+        }
+
+        // --- PUBLIC API FALLBACK PROXY (iTunes API) ---
+        try {
+            val itunesRes = itunesApi.searchSongs(query = query, limit = 10)
+            if (itunesRes.isSuccessful && itunesRes.body() != null) {
+                for (item in itunesRes.body()!!.results) {
+                    val tId = item.trackId.toString()
+                    tracks.add(
+                        TrackEntity(
+                            id = "sp_proxy_$tId",
+                            title = item.trackName ?: query,
+                            artist = item.artistName ?: "Unknown Artist",
+                            album = item.collectionName ?: "Single",
+                            durationMs = item.trackTimeMillis ?: 210000L,
+                            platformSource = PlatformSource.SPOTIFY,
+                            sourceTrackId = "spotify:track:proxy_$tId",
+                            coverUrl = item.artworkUrl100?.replace("100x100bb", "600x600bb") ?: defaultCover,
+                            streamUrl = item.previewUrl ?: defaultStream,
+                            audioQuality = defaultQuality,
+                            isDownloaded = false,
+                            isLiked = false,
+                            lyricsLrc = buildDefaultLyrics(item.trackName ?: query, item.artistName ?: "Unknown Artist"),
+                            genre = "Spotify Master (Proxy)",
+                            spotifyEquivalentId = "proxy_$tId",
+                            youtubeEquivalentId = "yt_equiv_$tId"
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore proxy errors
         }
 
         return tracks
@@ -170,7 +205,7 @@ class SeamlessUnifiedMusicApi(
                 apiKey = apiKey,
                 maxResults = 10
             )
-            if (searchResponse.isSuccessful && searchResponse.body() != null) {
+            if (searchResponse.isSuccessful && searchResponse.body() != null && searchResponse.body()!!.items.isNotEmpty()) {
                 for (item in searchResponse.body()!!.items) {
                     val videoId = item.id.videoId ?: continue
                     val snippet = item.snippet
@@ -199,9 +234,42 @@ class SeamlessUnifiedMusicApi(
                         )
                     )
                 }
+                return tracks
             }
         } catch (e: Exception) {
-            // Graceful handling
+            // Graceful handling, fall through to iTunes proxy
+        }
+
+        // --- PUBLIC API FALLBACK PROXY (iTunes API) ---
+        try {
+            val itunesRes = itunesApi.searchSongs(query = query, limit = 10)
+            if (itunesRes.isSuccessful && itunesRes.body() != null) {
+                for (item in itunesRes.body()!!.results) {
+                    val tId = item.trackId.toString()
+                    tracks.add(
+                        TrackEntity(
+                            id = "yt_proxy_$tId",
+                            title = item.trackName ?: query,
+                            artist = item.artistName ?: "Unknown Artist",
+                            album = "YouTube HQ Audio",
+                            durationMs = item.trackTimeMillis ?: 224000L,
+                            platformSource = PlatformSource.YOUTUBE,
+                            sourceTrackId = "youtube:video:proxy_$tId",
+                            coverUrl = item.artworkUrl100?.replace("100x100bb", "600x600bb") ?: defaultCover,
+                            streamUrl = item.previewUrl ?: defaultStream,
+                            audioQuality = AudioQuality.HIGH,
+                            isDownloaded = false,
+                            isLiked = false,
+                            lyricsLrc = buildDefaultLyrics(item.trackName ?: query, item.artistName ?: "Unknown Artist"),
+                            genre = "YouTube Proxy Audio",
+                            spotifyEquivalentId = "sp_equiv_$tId",
+                            youtubeEquivalentId = "proxy_$tId"
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore proxy errors
         }
 
         return tracks
