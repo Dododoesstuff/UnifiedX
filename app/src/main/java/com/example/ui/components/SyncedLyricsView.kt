@@ -90,6 +90,8 @@ import kotlin.math.roundToInt
 @Composable
 fun SyncedLyricsView(
     playerState: PlayerUiState,
+    frequencies: FloatArray = FloatArray(0),
+    visualizerSettings: com.example.visualizer.VisualizerSettings = com.example.visualizer.VisualizerSettings(),
     onClose: () -> Unit,
     onSeekToTimestamp: (Long) -> Unit,
     onShareSnippet: (String) -> Unit,
@@ -305,6 +307,29 @@ fun SyncedLyricsView(
                     color = TextSecondary.copy(alpha = 0.8f),
                     fontSize = 11.sp
                 )
+            }
+
+            // Real-Time Waveform Visualizer in Lyrics Mode
+            if (visualizerSettings.isEnabled && frequencies.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = 0.03f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.example.visualizer.WaveformVisualizer(
+                        frequencies = frequencies,
+                        settings = visualizerSettings,
+                        isPlaying = playerState.isPlaying,
+                        platformSource = track.platformSource,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

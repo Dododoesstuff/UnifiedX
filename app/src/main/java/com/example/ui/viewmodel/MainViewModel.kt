@@ -49,20 +49,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val playerManager = AudioPlayerManager(application)
     val syncManager = CrossPlatformSyncManager(repository, viewModelScope)
     val collabManager = CollaborativeSessionManager(application)
+    val waveformEngine = com.example.visualizer.AudioWaveformEngine(application, viewModelScope)
 
     val playerUiState = playerManager.uiState
     val syncUiState = syncManager.syncState
     val collabUiState = collabManager.sessionState
+    val visualizerSettings = waveformEngine.settings
+    val visualizerFrequencies = waveformEngine.rawFrequencies
 
     // Navigation state
     private val _currentTab = MutableStateFlow(AppNavTab.HOME)
     val currentTab: StateFlow<AppNavTab> = _currentTab.asStateFlow()
+
+    private val _isLoginScreenOpen = MutableStateFlow(false)
+    val isLoginScreenOpen: StateFlow<Boolean> = _isLoginScreenOpen.asStateFlow()
 
     private val _isFullScreenPlayerOpen = MutableStateFlow(false)
     val isFullScreenPlayerOpen: StateFlow<Boolean> = _isFullScreenPlayerOpen.asStateFlow()
 
     private val _isLyricsViewOpen = MutableStateFlow(false)
     val isLyricsViewOpen: StateFlow<Boolean> = _isLyricsViewOpen.asStateFlow()
+
+    private val _isVisualizerSettingsOpen = MutableStateFlow(false)
+    val isVisualizerSettingsOpen: StateFlow<Boolean> = _isVisualizerSettingsOpen.asStateFlow()
 
     private val _trackToAddToPlaylist = MutableStateFlow<TrackEntity?>(null)
     val trackToAddToPlaylist: StateFlow<TrackEntity?> = _trackToAddToPlaylist.asStateFlow()
@@ -189,12 +198,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentTab.value = tab
     }
 
+    fun setLoginScreenOpen(isOpen: Boolean) {
+        _isLoginScreenOpen.value = isOpen
+    }
+
     fun setFullScreenPlayerOpen(isOpen: Boolean) {
         _isFullScreenPlayerOpen.value = isOpen
     }
 
     fun setLyricsViewOpen(isOpen: Boolean) {
         _isLyricsViewOpen.value = isOpen
+    }
+
+    fun setVisualizerSettingsOpen(isOpen: Boolean) {
+        _isVisualizerSettingsOpen.value = isOpen
+    }
+
+    fun updateVisualizerSettings(settings: com.example.visualizer.VisualizerSettings) {
+        waveformEngine.updateSettings(settings)
     }
 
     fun openAddToPlaylistDialog(track: TrackEntity) {
@@ -227,10 +248,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+        if (query.isNotBlank() && query.length >= 2) {
+            viewModelScope.launch {
+                repository.searchOnlineAndCache(query, _searchFilter.value)
+            }
+        }
     }
 
     fun setSearchFilter(filter: String) {
         _searchFilter.value = filter
+        if (_searchQuery.value.isNotBlank()) {
+            viewModelScope.launch {
+                repository.searchOnlineAndCache(_searchQuery.value, filter)
+            }
+        }
     }
 
     // Player delegates
@@ -293,6 +324,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removeTrackFromPlaylist(playlistId: String, trackId: String) {
         viewModelScope.launch {
             repository.removeTrackFromPlaylist(playlistId, trackId)
+        }
+    }
+
+    fun deletePlaylist(playlistId: String) {
+        viewModelScope.launch {
+            repository.deletePlaylist(playlistId)
+            if (_selectedPlaylist.value?.playlist?.id == playlistId) {
+                _selectedPlaylist.value = null
+            }
         }
     }
 

@@ -16,8 +16,14 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :playlistId LIMIT 1")
     fun getPlaylistWithTracks(playlistId: String): Flow<PlaylistWithTracks?>
 
+    @Query("SELECT * FROM playlists WHERE id = :playlistId LIMIT 1")
+    fun getPlaylistById(playlistId: String): Flow<PlaylistEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylist(playlist: PlaylistEntity)
+
+    @androidx.room.Update
+    suspend fun updatePlaylist(playlist: PlaylistEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCrossRef(crossRef: PlaylistTrackCrossRef)

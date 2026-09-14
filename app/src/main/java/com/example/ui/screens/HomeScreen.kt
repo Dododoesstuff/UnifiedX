@@ -21,8 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
@@ -84,6 +86,7 @@ fun HomeScreen(
     onAddToPlaylistClick: (TrackEntity) -> Unit,
     onShareClick: (TrackEntity) -> Unit,
     onSyncNowClick: () -> Unit,
+    onOpenLinkAccountsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -155,29 +158,60 @@ fun HomeScreen(
                     }
                 }
 
-                // Minimalist Sync Status Pill
+                // Quick Actions: Link Services & Sync Status Pill
                 Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(CrossPurple.copy(alpha = 0.12f))
-                        .clickable(onClick = onSyncNowClick)
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                        .testTag("home_sync_badge"),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Sync,
-                        contentDescription = "Sync",
-                        tint = CrossPurple,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = if (syncState.isSyncing) "Syncing" else "Synced",
-                        color = CrossPurple,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // Link Services button
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(SpotifyGreen.copy(alpha = 0.15f))
+                            .clickable(onClick = onOpenLinkAccountsClick)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .testTag("home_link_accounts_button"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Link,
+                            contentDescription = "Link Services",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Link Accounts",
+                            color = SpotifyGreen,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Minimalist Sync Status Pill
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(CrossPurple.copy(alpha = 0.12f))
+                            .clickable(onClick = onSyncNowClick)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .testTag("home_sync_badge"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Sync",
+                            tint = CrossPurple,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (syncState.isSyncing) "Syncing" else "Synced",
+                            color = CrossPurple,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

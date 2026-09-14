@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
@@ -44,6 +45,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -92,6 +95,8 @@ import kotlin.math.roundToInt
 @Composable
 fun FullScreenPlayer(
     playerState: PlayerUiState,
+    frequencies: FloatArray = FloatArray(0),
+    visualizerSettings: com.example.visualizer.VisualizerSettings = com.example.visualizer.VisualizerSettings(),
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
@@ -104,6 +109,7 @@ fun FullScreenPlayer(
     onCycleEqPreset: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
     onShareClick: () -> Unit,
+    onOpenVisualizerSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val track = playerState.currentTrack ?: return
@@ -507,6 +513,30 @@ fun FullScreenPlayer(
                 )
             }
 
+            // Real-Time Audio-Reactive Waveform Spectrum Visualizer
+            if (visualizerSettings.isEnabled && frequencies.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(68.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.04f))
+                        .clickable(onClick = onOpenVisualizerSettings)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .testTag("full_player_waveform_visualizer"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.example.visualizer.WaveformVisualizer(
+                        frequencies = frequencies,
+                        settings = visualizerSettings,
+                        isPlaying = playerState.isPlaying,
+                        platformSource = track.platformSource,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Primary Playback Controls Row (Shuffle, Prev, Play/Pause, Next, Repeat)
@@ -588,13 +618,13 @@ fun FullScreenPlayer(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Action Bar: Lyrics Sheet Toggle & Add to Playlist
+            // Action Bar: Lyrics Sheet Toggle, Waveform Studio & Add to Playlist
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.White.copy(alpha = 0.05f))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -603,7 +633,7 @@ fun FullScreenPlayer(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .clickable(onClick = onOpenLyrics)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                         .testTag("open_lyrics_button"),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -611,13 +641,37 @@ fun FullScreenPlayer(
                         imageVector = Icons.Default.Lyrics,
                         contentDescription = "Open Synced Lyrics",
                         tint = sourceColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Synced Lyrics",
+                        text = "Lyrics",
                         color = TextPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Waveform Visualizer Studio Action
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(onClick = onOpenVisualizerSettings)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .testTag("open_visualizer_settings_button"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Waveform Settings",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Waveform",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -627,7 +681,7 @@ fun FullScreenPlayer(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .clickable(onClick = onAddToPlaylistClick)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                         .testTag("add_to_playlist_button"),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -635,13 +689,13 @@ fun FullScreenPlayer(
                         imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                         contentDescription = "Add to Unified Playlist",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Add to Playlist",
+                        text = "Playlist",
                         color = TextPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }

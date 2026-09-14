@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.OfflinePin
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Button
@@ -70,10 +71,15 @@ fun SettingsScreen(
     playerState: PlayerUiState,
     syncState: SyncState,
     userPreferences: UserPreferencesEntity? = null,
+    visualizerSettings: com.example.visualizer.VisualizerSettings = com.example.visualizer.VisualizerSettings(),
+    visualizerFrequencies: FloatArray = FloatArray(0),
+    onUpdateVisualizerSettings: (com.example.visualizer.VisualizerSettings) -> Unit = {},
+    onOpenVisualizerStudio: () -> Unit = {},
     onSetAudioQuality: (AudioQuality) -> Unit,
     onSetOfflineModeOnly: (Boolean) -> Unit,
     onSetEqPreset: (EqPreset) -> Unit,
     onUpdateAccountCredential: (PlatformSource, String, String) -> Unit,
+    onOpenLinkAccountsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showSpotifyKeyDialog by remember { mutableStateOf(false) }
@@ -136,6 +142,50 @@ fun SettingsScreen(
                                 color = TextSecondary,
                                 fontSize = 10.sp
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenLinkAccountsClick),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = CrossPurple.copy(alpha = 0.15f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Link,
+                            contentDescription = "Link Accounts",
+                            tint = CrossPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Guided Service Account Setup",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Connect Spotify & YouTube with step-by-step guidance and test tokens",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Button(
+                            onClick = onOpenLinkAccountsClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = CrossPurple),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Open", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -317,6 +367,112 @@ fun SettingsScreen(
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Waveform Visualizer Studio
+        item {
+            Spacer(modifier = Modifier.height(22.dp))
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = CrossPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Waveform Visualizer Studio",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Switch(
+                        checked = visualizerSettings.isEnabled,
+                        onCheckedChange = { onUpdateVisualizerSettings(visualizerSettings.copy(isEnabled = it)) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = CrossPurple,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = ObsidianStroke
+                        ),
+                        modifier = Modifier.testTag("settings_visualizer_switch")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp)),
+                    colors = CardDefaults.cardColors(containerColor = ObsidianCard)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        // Live visualizer preview box
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(ObsidianDeep)
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            com.example.visualizer.WaveformVisualizer(
+                                frequencies = visualizerFrequencies,
+                                settings = visualizerSettings,
+                                isPlaying = playerState.isPlaying,
+                                platformSource = playerState.currentTrack?.platformSource ?: PlatformSource.SPOTIFY,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Active Style: ${visualizerSettings.style.displayName}",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "${visualizerSettings.barCount} Bands • ${visualizerSettings.palette.displayName}",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            Button(
+                                onClick = onOpenVisualizerStudio,
+                                colors = ButtonDefaults.buttonColors(containerColor = CrossPurple),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("settings_customize_visualizer_button")
+                            ) {
+                                Text(
+                                    text = "Customize",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }

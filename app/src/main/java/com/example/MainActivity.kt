@@ -64,6 +64,7 @@ import com.example.ui.screens.CollabSessionScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.SearchScreen
+import com.example.ui.screens.ServiceLoginScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.CrossPurple
 import com.example.ui.theme.MyApplicationTheme
@@ -105,8 +106,12 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     val searchFilter by viewModel.searchFilter.collectAsState()
     val selectedPlaylist by viewModel.selectedPlaylist.collectAsState()
 
+    val isLoginScreenOpen by viewModel.isLoginScreenOpen.collectAsState()
     val isFullScreenPlayerOpen by viewModel.isFullScreenPlayerOpen.collectAsState()
     val isLyricsViewOpen by viewModel.isLyricsViewOpen.collectAsState()
+    val isVisualizerSettingsOpen by viewModel.isVisualizerSettingsOpen.collectAsState()
+    val visualizerSettings by viewModel.visualizerSettings.collectAsState()
+    val visualizerFrequencies by viewModel.visualizerFrequencies.collectAsState()
     val trackToAddToPlaylist by viewModel.trackToAddToPlaylist.collectAsState()
     val trackToShare by viewModel.trackToShare.collectAsState()
 
@@ -135,8 +140,12 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     }
 
     // Intercept back button when overlay sheets are active
-    BackHandler(enabled = isLyricsViewOpen || isFullScreenPlayerOpen || selectedPlaylist != null) {
-        if (isLyricsViewOpen) {
+    BackHandler(enabled = isVisualizerSettingsOpen || isLoginScreenOpen || isLyricsViewOpen || isFullScreenPlayerOpen || selectedPlaylist != null) {
+        if (isVisualizerSettingsOpen) {
+            viewModel.setVisualizerSettingsOpen(false)
+        } else if (isLoginScreenOpen) {
+            viewModel.setLoginScreenOpen(false)
+        } else if (isLyricsViewOpen) {
             viewModel.setLyricsViewOpen(false)
         } else if (isFullScreenPlayerOpen) {
             viewModel.setFullScreenPlayerOpen(false)
@@ -291,7 +300,8 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("Cross-platform synchronization in progress...")
                             }
-                        }
+                        },
+                        onOpenLinkAccountsClick = { viewModel.setLoginScreenOpen(true) }
                     )
                 }
                 AppNavTab.SEARCH -> {
@@ -367,6 +377,10 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                         playerState = playerState,
                         syncState = syncState,
                         userPreferences = userPreferences,
+                        visualizerSettings = visualizerSettings,
+                        visualizerFrequencies = visualizerFrequencies,
+                        onUpdateVisualizerSettings = { viewModel.updateVisualizerSettings(it) },
+                        onOpenVisualizerStudio = { viewModel.setVisualizerSettingsOpen(true) },
                         onSetAudioQuality = { viewModel.updateStreamingQuality(it) },
                         onSetOfflineModeOnly = { viewModel.toggleOfflineListeningMode(it) },
                         onSetEqPreset = { viewModel.updateEqualizerPreset(it) },
@@ -375,7 +389,8 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("Updated credentials for ${platform.displayName} (Saved to Room)")
                             }
-                        }
+                        },
+                        onOpenLinkAccountsClick = { viewModel.setLoginScreenOpen(true) }
                     )
                 }
             }
@@ -390,6 +405,8 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     ) {
         FullScreenPlayer(
             playerState = playerState,
+            frequencies = visualizerFrequencies,
+            visualizerSettings = visualizerSettings,
             onCollapse = { viewModel.setFullScreenPlayerOpen(false) },
             onPlayPause = { viewModel.togglePlayPause() },
             onSeek = { viewModel.seekTo(it) },
@@ -406,7 +423,8 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                 viewModel.setEqPreset(allPresets[nextIndex])
             },
             onAddToPlaylistClick = { playerState.currentTrack?.let { viewModel.openAddToPlaylistDialog(it) } },
-            onShareClick = { playerState.currentTrack?.let { viewModel.openSocialShareDialog(it) } }
+            onShareClick = { playerState.currentTrack?.let { viewModel.openSocialShareDialog(it) } },
+            onOpenVisualizerSettings = { viewModel.setVisualizerSettingsOpen(true) }
         )
     }
 
@@ -418,6 +436,8 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     ) {
         SyncedLyricsView(
             playerState = playerState,
+            frequencies = visualizerFrequencies,
+            visualizerSettings = visualizerSettings,
             onClose = { viewModel.setLyricsViewOpen(false) },
             onSeekToTimestamp = { viewModel.seekTo(it) },
             onShareSnippet = { snippet ->
@@ -502,6 +522,54 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     if (showSplashScreen) {
         AppSplashScreen(
             onAnimationFinish = { showSplashScreen = false }
+        )
+    }
+
+    // Guided Music Service Login & Account Linking Screen Overlay
+    AnimatedVisibility(
+        visible = isLoginScreenOpen,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+    ) {
+        ServiceLoginScreen(
+            syncState = syncState,
+            onLinkSpotify = { token, username ->
+                viewModel.updateAccountCredential(com.example.data.model.PlatformSource.SPOTIFY, token, username)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Spotify account linked & credentials securely stored in Room")
+                }
+            },
+            onLinkYouTube = { apiKey, channelName ->
+                viewModel.updateAccountCredential(com.example.data.model.PlatformSource.YOUTUBE, apiKey, channelName)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("YouTube account linked & credentials securely stored in Room")
+                }
+            },
+            onStartSync = {
+                viewModel.startSync()
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Starting initial cross-platform library synchronization...")
+                }
+            },
+            onContinueToApp = {
+                viewModel.setLoginScreenOpen(false)
+            }
+        )
+    }
+
+    // Waveform Visualizer Studio Customization Bottom Sheet
+    AnimatedVisibility(
+        visible = isVisualizerSettingsOpen,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+    ) {
+        com.example.visualizer.VisualizerCustomizationSheet(
+            settings = visualizerSettings,
+            frequencies = visualizerFrequencies,
+            isPlaying = playerState.isPlaying,
+            platformSource = playerState.currentTrack?.platformSource ?: com.example.data.model.PlatformSource.SPOTIFY,
+            onSettingsChanged = { viewModel.updateVisualizerSettings(it) },
+            onDismiss = { viewModel.setVisualizerSettingsOpen(false) }
         )
     }
 }
