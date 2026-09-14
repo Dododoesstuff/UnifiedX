@@ -1,0 +1,6 @@
+{
+  "name": "UnifiedX",
+  "description": "Unified Spotify & YouTube music player with cross-platform playlists, offline downloads, synced lyrics, and collaborative sessions",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
