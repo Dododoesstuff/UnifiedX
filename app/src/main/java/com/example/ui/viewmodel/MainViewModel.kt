@@ -13,8 +13,10 @@ import com.example.data.local.UserPreferencesEntity
 import com.example.data.model.AudioQuality
 import com.example.data.model.PlatformSource
 import com.example.data.repository.MusicRepository
+import com.example.player.AudioPlayerHolder
 import com.example.player.AudioPlayerManager
 import com.example.player.EqPreset
+import com.example.player.MediaPlaybackService
 import com.example.sync.CrossPlatformSyncManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -177,6 +179,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     init {
+        AudioPlayerHolder.playerManager = playerManager
         viewModelScope.launch {
             repository.ensureSeeded()
         }
@@ -233,6 +236,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Player delegates
     fun playTrack(track: TrackEntity, queue: List<TrackEntity> = emptyList()) {
         val tracksQueue = if (queue.isNotEmpty()) queue else allTracks.value
+        try {
+            MediaPlaybackService.startService(getApplication())
+        } catch (e: Exception) {
+            // Service start exception safety
+        }
         playerManager.playTrack(track, tracksQueue)
     }
 

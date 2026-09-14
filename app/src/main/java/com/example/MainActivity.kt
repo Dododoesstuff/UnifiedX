@@ -1,10 +1,16 @@
 package com.example
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.local.TrackEntity
 import com.example.ui.components.AddToPlaylistDialog
+import com.example.ui.components.AppSplashScreen
 import com.example.ui.components.FullScreenPlayer
 import com.example.ui.components.MiniPlayer
 import com.example.ui.components.SocialShareSheet
@@ -107,6 +114,25 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
 
     var showCreatePlaylistSheet by remember { mutableStateOf(false) }
+    var showSplashScreen by remember { mutableStateOf(true) }
+
+    // Request notification permission for background playback controls on Android 13+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     // Intercept back button when overlay sheets are active
     BackHandler(enabled = isLyricsViewOpen || isFullScreenPlayerOpen || selectedPlaylist != null) {
@@ -469,6 +495,13 @@ fun UnifiedXApp(viewModel: MainViewModel = viewModel()) {
                 viewModel.shareTrackSocially(trackToShare!!)
                 viewModel.closeSocialShareDialog()
             }
+        )
+    }
+
+    // App Startup Splash Screen with Fancy Logo Animation
+    if (showSplashScreen) {
+        AppSplashScreen(
+            onAnimationFinish = { showSplashScreen = false }
         )
     }
 }

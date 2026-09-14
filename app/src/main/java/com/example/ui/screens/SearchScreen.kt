@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +13,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -29,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +44,7 @@ import com.example.data.local.TrackEntity
 import com.example.player.PlayerUiState
 import com.example.ui.components.TrackItemRow
 import com.example.ui.theme.CrossPurple
+import com.example.ui.theme.ObsidianCard
 import com.example.ui.theme.ObsidianDeep
 import com.example.ui.theme.ObsidianStroke
 import com.example.ui.theme.SpotifyGreen
@@ -65,6 +72,18 @@ fun SearchScreen(
         "SPOTIFY" to "Spotify 🟢",
         "YOUTUBE" to "YouTube 🔴",
         "DOWNLOADED" to "Offline 📥"
+    )
+
+    val trendingKeywords = listOf(
+        "The Weeknd",
+        "Billie Eilish",
+        "Dua Lipa",
+        "Queen Live",
+        "Lo-Fi",
+        "Acoustic",
+        "Synthwave",
+        "Electronic",
+        "Tokyo"
     )
 
     Column(
@@ -161,6 +180,49 @@ fun SearchScreen(
                     )
                 }
             }
+
+            // Quick Trending Searches suggestions if no query typed
+            if (searchQuery.isEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TrendingUp,
+                        contentDescription = "Trending",
+                        tint = CrossPurple,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Popular on Spotify & YouTube",
+                        color = TextSecondary,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(trendingKeywords) { keyword ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ObsidianCard)
+                                .clickable { onQueryChange(keyword) }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = keyword,
+                                color = TextPrimary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Results List
@@ -175,13 +237,43 @@ fun SearchScreen(
                     Text(text = "🔍", fontSize = 42.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = if (searchQuery.isEmpty()) "Find your favorite music across platforms" else "No matching tracks found",
+                        text = if (searchQuery.isEmpty()) "Find your favorite music across platforms" else "No matching tracks found for \"$searchQuery\"",
                         color = TextSecondary,
                         fontSize = 14.sp
                     )
                 }
             }
         } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${results.size} tracks found",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                IconButton(
+                    onClick = { results.firstOrNull()?.let { onTrackClick(it) } },
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(CrossPurple)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play all results",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 120.dp)

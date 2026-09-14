@@ -239,6 +239,227 @@ object SeedData {
             youtubeEquivalentId = "yt_104",
             genre = "Folk",
             playCount = 54
+        ),
+        // Additional Spotify Catalog Tracks
+        TrackEntity(
+            id = "sp_005",
+            title = "Starboy (Nightfall Remix)",
+            artist = "The Weeknd & Daft Punk",
+            album = "Starboy (Deluxe)",
+            durationMs = 230000L,
+            platformSource = PlatformSource.SPOTIFY,
+            sourceTrackId = "spotify:track:7MXVkk9YM5IZUtovv4fscV",
+            coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            audioQuality = AudioQuality.LOSSLESS,
+            isDownloaded = false,
+            downloadedBytes = 0L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (Synth bass intro)
+                [00:08.00] I'm tryin' to put you in the worst mood, ah
+                [00:12.00] P1 cleaner than your church shoes, ah
+                [00:16.00] Point-one-point-two just to hurt you, ah
+                [00:20.00] All red Lamb' just to tease you, ah
+                [00:24.00] Look what you've done, I'm a motherfuckin' starboy
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_005",
+            youtubeEquivalentId = "yt_105",
+            genre = "R&B / Pop",
+            playCount = 310
+        ),
+        TrackEntity(
+            id = "sp_006",
+            title = "Blinding Lights",
+            artist = "The Weeknd",
+            album = "After Hours",
+            durationMs = 200000L,
+            platformSource = PlatformSource.SPOTIFY,
+            sourceTrackId = "spotify:track:0VjIjW4GlUZAMYd2vXMi3b",
+            coverUrl = "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            audioQuality = AudioQuality.LOSSLESS,
+            isDownloaded = true,
+            downloadedBytes = 16200000L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (80s Synth opening)
+                [00:06.00] Yeah, I've been tryna call
+                [00:10.00] I've been on my own for long enough
+                [00:14.00] Maybe you can show me how to love, maybe
+                [00:20.00] I'm going through withdrawals
+                [00:25.00] You don't even have to do too much
+                [00:29.00] I said, ooh, I'm blinded by the lights
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_006",
+            youtubeEquivalentId = "yt_106",
+            genre = "Synthwave / Pop",
+            playCount = 490
+        ),
+        TrackEntity(
+            id = "sp_007",
+            title = "Levitating",
+            artist = "Dua Lipa",
+            album = "Future Nostalgia",
+            durationMs = 203000L,
+            platformSource = PlatformSource.SPOTIFY,
+            sourceTrackId = "spotify:track:463SpQwh87Xi3HG9u599Ob",
+            coverUrl = "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+            audioQuality = AudioQuality.LOSSLESS,
+            isDownloaded = false,
+            downloadedBytes = 0L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (Funky bass groove)
+                [00:05.00] If you wanna run away with me, I know a galaxy
+                [00:10.00] And I can take you for a ride
+                [00:15.00] I had a premonition that we fell into a rhythm
+                [00:20.00] Where the music don't stop for life
+                [00:25.00] You want me, I want you, baby
+                [00:30.00] My sugarboo, I'm levitating
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_007",
+            youtubeEquivalentId = "yt_107",
+            genre = "Disco Pop",
+            playCount = 280
+        ),
+        TrackEntity(
+            id = "sp_008",
+            title = "As It Was",
+            artist = "Harry Styles",
+            album = "Harry's House",
+            durationMs = 167000L,
+            platformSource = PlatformSource.SPOTIFY,
+            sourceTrackId = "spotify:track:4Dvkj6JhhA12EX05fT7y2e",
+            coverUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+            audioQuality = AudioQuality.LOSSLESS,
+            isDownloaded = true,
+            downloadedBytes = 14800000L,
+            isLiked = false,
+            lyricsLrc = """
+                [00:00.00] Come on, Harry, we wanna say goodnight to you
+                [00:05.00] Holdin' me back
+                [00:09.00] Gravity's holdin' me back
+                [00:13.00] I want you to hold out the palm of your hand
+                [00:17.00] Why don't we leave it at that?
+                [00:21.00] You know it's not the same as it was
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_008",
+            youtubeEquivalentId = "yt_108",
+            genre = "Indie Pop",
+            playCount = 340
+        ),
+        // Additional YouTube Catalog Tracks & Live Studio Recordings
+        TrackEntity(
+            id = "yt_105",
+            title = "Bad Guy (Live at Glastonbury)",
+            artist = "Billie Eilish",
+            album = "BBC Music Live at Worthy Farm",
+            durationMs = 214000L,
+            platformSource = PlatformSource.YOUTUBE,
+            sourceTrackId = "youtube:video:DyDfgMOUjCI",
+            coverUrl = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+            audioQuality = AudioQuality.HIGH,
+            isDownloaded = true,
+            downloadedBytes = 8900000L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (Crowd cheering, live 808 sub bass)
+                [00:06.00] White shirt now red, my bloody nose
+                [00:10.00] Sleepin', you're on your tippy toes
+                [00:14.00] Creepin' around like no one knows
+                [00:18.00] Think you're so criminal
+                [00:23.00] So you're a tough guy, like it really rough guy
+                [00:28.00] I'm that bad type, make your mama sad type
+                [00:33.00] I'm the bad guy... duh!
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_009",
+            youtubeEquivalentId = "yt_105",
+            genre = "Alternative Pop",
+            playCount = 420
+        ),
+        TrackEntity(
+            id = "yt_106",
+            title = "Bohemian Rhapsody (Live at Wembley Stadium)",
+            artist = "Queen",
+            album = "Queen Live Tribute Collection 4K",
+            durationMs = 354000L,
+            platformSource = PlatformSource.YOUTUBE,
+            sourceTrackId = "youtube:video:fJ9rUzIMcZQ",
+            coverUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+            audioQuality = AudioQuality.HIGH,
+            isDownloaded = false,
+            downloadedBytes = 0L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (Piano intro live)
+                [00:10.00] Is this the real life? Is this just fantasy?
+                [00:19.00] Caught in a landslide, no escape from reality
+                [00:28.00] Open your eyes, look up to the skies and see
+                [00:37.00] I'm just a poor boy, I need no sympathy
+                [00:46.00] Because I'm easy come, easy go, little high, little low
+                [00:55.00] Anyway the wind blows doesn't really matter to me
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_010",
+            youtubeEquivalentId = "yt_106",
+            genre = "Classic Rock",
+            playCount = 610
+        ),
+        TrackEntity(
+            id = "yt_107",
+            title = "Stay (Acoustic Studio Version)",
+            artist = "The Kid LAROI & Justin Bieber",
+            album = "Vevo Studio Sessions",
+            durationMs = 142000L,
+            platformSource = PlatformSource.YOUTUBE,
+            sourceTrackId = "youtube:video:kTJczUoc26U",
+            coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+            audioQuality = AudioQuality.HIGH,
+            isDownloaded = true,
+            downloadedBytes = 7200000L,
+            isLiked = false,
+            lyricsLrc = """
+                [00:00.00] (Acoustic guitar strums)
+                [00:04.00] I do the same thing I told you that I never would
+                [00:08.00] I told you I'd change, even when I knew I never could
+                [00:12.00] I know that I can't find nobody else as good as you
+                [00:17.00] I need you to stay, need you to stay, hey
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_011",
+            youtubeEquivalentId = "yt_107",
+            genre = "Pop Rap / Acoustic",
+            playCount = 390
+        ),
+        TrackEntity(
+            id = "yt_108",
+            title = "Synthwave 1984 (Analog Live Modular Set)",
+            artist = "Timecop1983 & The Midnight",
+            album = "YouTube Red Bull Soundstage 4K",
+            durationMs = 280000L,
+            platformSource = PlatformSource.YOUTUBE,
+            sourceTrackId = "youtube:video:8ZhwZZq82aA",
+            coverUrl = "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80",
+            streamUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+            audioQuality = AudioQuality.HIGH,
+            isDownloaded = false,
+            downloadedBytes = 0L,
+            isLiked = true,
+            lyricsLrc = """
+                [00:00.00] (Modular analog filter sweep)
+                [00:15.00] Driving through the sunset neon highway
+                [00:25.00] Listening to radio waves from yesterday
+                [00:38.00] We were young and wild and free
+                [00:50.00] Forever locked in 1984 memory
+            """.trimIndent(),
+            spotifyEquivalentId = "sp_001",
+            youtubeEquivalentId = "yt_108",
+            genre = "Synthwave",
+            playCount = 270
         )
     )
 

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">UnifiedX</string>
+    <string name="widget_name">UnifiedX Now Playing</string>
+    <string name="widget_description">Shows currently playing track with quick playback controls</string>
 </resources>
