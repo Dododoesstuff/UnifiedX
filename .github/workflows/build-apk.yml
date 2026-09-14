@@ -30,8 +30,11 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Create debug keystore and environment files if missing
+      - name: Create keystores and environment configuration
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
+          # 1. Setup debug keystore
           if [ ! -f "debug.keystore" ]; then
             if [ -f "debug.keystore.base64" ]; then
               base64 -d debug.keystore.base64 > debug.keystore
@@ -39,31 +42,63 @@ jobs:
               keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
             fi
           fi
-          touch .env || true
 
-      - name: Build APKs (Debug and Signed Release fallback)
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
+          # 2. Setup release keystore (use secret or generate a reproducible installable release key)
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/my-upload-key.jks"
-            export KEYSTORE_PATH="${GITHUB_WORKSPACE}/my-upload-key.jks"
-            gradle :app:assembleRelease :app:assembleDebug --no-daemon
           else
-            gradle :app:assembleDebug --no-daemon
+            keytool -genkey -v -keystore "${GITHUB_WORKSPACE}/my-upload-key.jks" -storepass "unifiedxpass" -alias "upload" -keypass "unifiedxpass" -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=UnifiedX Release,O=UnifiedX,C=US"
           fi
+          touch .env || true
 
-      - name: Upload APK Artifacts
+      - name: Build Stable Release & Debug APKs
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'unifiedxpass' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'unifiedxpass' }}
+        run: |
+          gradle :app:assembleRelease :app:assembleDebug --no-daemon
+
+      - name: Package & Label Standalone Installable APKs
+        run: |
+          mkdir -p release-apks
+          find app/build/outputs/apk/release -name "*.apk" -exec cp {} release-apks/UnifiedX-Release.apk \; || true
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} release-apks/UnifiedX-Debug.apk \; || true
+
+      - name: Upload APK Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: unifiedx-apk-builds
-          path: app/build/outputs/apk/**/*.apk
+          name: UnifiedX-Android-APKs
+          path: release-apks/*.apk
 
-      - name: Create GitHub Release on Tag
+      - name: Publish Stable GitHub Release (on Tags)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: app/build/outputs/apk/**/*.apk
+          name: "UnifiedX Music Player ${{ github.ref_name }}"
+          files: release-apks/*.apk
           generate_release_notes: true
+          draft: false
+          prerelease: false
+          make_latest: true
+
+      - name: Publish Continuous Rolling Pre-Release (on main branch push)
+        uses: softprops/action-gh-release@v2
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "latest-build"
+          name: "UnifiedX Latest Continuous Build"
+          body: |
+            ### 🎵 UnifiedX Latest Continuous Build
+            Auto-built and signed from latest commit `${{ github.sha }}`.
+            
+            - **UnifiedX-Release.apk**: Optimized, standalone installable APK.
+            - **UnifiedX-Debug.apk**: Developer debug APK.
+          files: release-apks/*.apk
+          draft: false
+          prerelease: true
+          make_latest: false
